@@ -1,4 +1,7 @@
-// ✅ Устойчивый API-обработчик с поддержкой русских городов и автопоиском IATA
+// ✅ Устойчивый API-обработчик с поддержкой русских городов и автопоиском IATA + ограничение частоты
+let lastRequestTime = 0;
+const MIN_INTERVAL = 3000; // минимум 3 секунды между запросами
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -7,6 +10,12 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+
+  const now = Date.now();
+  if (now - lastRequestTime < MIN_INTERVAL) {
+    return res.status(429).json({ error: "Too many requests. Please wait a moment." });
+  }
+  lastRequestTime = now;
 
   const { from, to, date } = req.query;
   if (!from || !to || !date) {
