@@ -1,4 +1,5 @@
-// ✅ Устойчивый API-обработчик с поддержкой русских городов и автопоиском IATA + ограничение частоты
+// ✅ Устойчивый API-обработчик Aviasales с IATA и fallback
+
 let lastRequestTime = 0;
 const MIN_INTERVAL = 3000; // минимум 3 секунды между запросами
 
@@ -6,6 +7,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Content-Type", "application/json");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -17,7 +19,8 @@ export default async function handler(req, res) {
   }
   lastRequestTime = now;
 
-  const { from, to, date } = req.query;
+  const { from = "", to = "", date = "" } = req.query;
+
   if (!from || !to || !date) {
     return res.status(400).json({ error: "Missing required query parameters: from, to, date" });
   }
@@ -27,7 +30,10 @@ export default async function handler(req, res) {
     try {
       const res = await fetch(url);
       const data = await res.json();
-      const match = data.find(item => item.iata && item.name.toLowerCase().includes(cityName.toLowerCase()));
+      const match = data.find(item => 
+        item.iata && 
+        (item.name.toLowerCase() === cityName.toLowerCase() || item.name.toLowerCase().includes(cityName.toLowerCase()))
+      );
       return match?.iata || null;
     } catch (err) {
       console.error("Ошибка получения IATA-кода:", err);
@@ -48,20 +54,30 @@ export default async function handler(req, res) {
     const response = await fetch(apiUrl);
     const data = await response.json();
 
-    if (data?.data?.length) {
+    if (Array.isArray(data?.data) && data.data.length) {
       return res.status(200).json(data.data);
     }
 
     console.warn("⚠️ API вернул пустой ответ. Используем моки.");
-    return res.status(200).json([
-      { from: origin, to: destination, date, price: 41, airline: "W6" },
-      { from: origin, to: destination, date, price: 56, airline: "LO" }
-    ]);
   } catch (err) {
     console.error("❌ Ошибка при запросе к Aviasales API:", err);
-    return res.status(200).json([
-      { from: origin, to: destination, date, price: 41, airline: "W6" },
-      { from: origin, to: destination, date, price: 56, airline: "LO" }
-    ]);
   }
+
+  // Fallback-массив с моками
+  return res.status(200).json([
+    {
+      origin,
+      destination,
+      departure_at: `${date}T06:30:00`,
+      price: 41,
+      airline: "W6"
+    },
+    {
+      origin,
+      destination,
+      departure_at: `${date}T18:50:00`,
+      price: 56,
+      airline: "LO"
+    }
+  ]);
 }
