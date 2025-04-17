@@ -11,16 +11,15 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  // 👤 Получаем IP клиента
-  const ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress;
   const now = Date.now();
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress || "unknown";
 
   if (!requestLog[ip]) requestLog[ip] = { lastRequest: 0, lastIataRequest: 0 };
 
+  // 🚫 Частые основные запросы
   if (now - requestLog[ip].lastRequest < MIN_INTERVAL) {
     return res.status(429).json({ error: "⏳ Слишком много запросов. Подождите немного." });
   }
-
   requestLog[ip].lastRequest = now;
 
   const { from = "", to = "", date = "" } = req.query;
@@ -29,7 +28,6 @@ export default async function handler(req, res) {
   }
 
   const normalize = s => (s || "").trim().toLowerCase();
-
   const fallbackCodes = {
     "париж": "PAR",
     "берлин": "BER",
@@ -37,6 +35,9 @@ export default async function handler(req, res) {
     "рим": "ROM"
   };
 
+  const delay = ms => new Promise(res => setTimeout(res, ms));
+
+  // 🔄 IATA с повтором
   const getIataCode = async (city) => {
     const key = normalize(city);
     if (iataCache[key]) return iataCache[key];
@@ -47,27 +48,37 @@ export default async function handler(req, res) {
     }
 
     requestLog[ip].lastIataRequest = now;
-
     const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
 
-    try {
-      const res = await fetch(url);
-      const json = await res.json();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(url);
+        if (res.status === 429) {
+          console.warn(`⚠️ 429 при IATA, попытка ${attempt + 1}`);
+          await delay(1000 * (attempt + 1));
+          continue;
+        }
 
-      const match = json.find(item => {
-        const code = normalize(item.code);
-        const name = normalize(item.name);
-        const cityName = normalize(item.city_name);
-        return code === key || name === key || cityName.includes(key);
-      });
+        const json = await res.json();
+        const match = json.find(item => {
+          const code = normalize(item.code);
+          const name = normalize(item.name);
+          const cityName = normalize(item.city_name);
+          return code === key || name === key || cityName.includes(key);
+        });
 
-      const code = match?.code?.toUpperCase() || fallbackCodes[key] || null;
-      if (code) iataCache[key] = code;
-      return code;
-    } catch (err) {
-      console.error("❌ Ошибка получения IATA:", err);
-      return fallbackCodes[key] || null;
+        const code = match?.code?.toUpperCase() || fallbackCodes[key] || null;
+        if (code) iataCache[key] = code;
+        return code;
+
+      } catch (err) {
+        console.error("❌ Ошибка получения IATA:", err);
+        await delay(500);
+      }
     }
+
+    console.warn("❌ Не удалось получить IATA, возвращаем fallback");
+    return fallbackCodes[key] || null;
   };
 
   const origin = from.length === 3 ? from.toUpperCase() : await getIataCode(from);
@@ -95,7 +106,7 @@ export default async function handler(req, res) {
     console.error("❌ Ошибка API Aviasales:", err);
   }
 
-  // 🧪 Мок-ответ
+  // 🧪 Fallback
   return res.status(200).json([
     {
       origin,
