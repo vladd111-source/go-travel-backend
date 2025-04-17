@@ -1,5 +1,7 @@
 let lastRequestTime = 0;
+let lastIataRequestTime = 0; // 🔒 защита IATA
 const MIN_INTERVAL = 3000; // 3 секунды
+const IATA_INTERVAL = 5000; // минимум 5 сек между запросами к IATA
 const iataCache = {}; // 🔁 Кэш IATA-кодов
 
 export default async function handler(req, res) {
@@ -23,9 +25,23 @@ export default async function handler(req, res) {
 
   const normalize = s => (s || "").trim().toLowerCase();
 
+  const fallbackCodes = {
+    "париж": "PAR",
+    "берлин": "BER",
+    "москва": "MOW",
+    "рим": "ROM"
+  };
+
   const getIataCode = async (city) => {
     const key = normalize(city);
     if (iataCache[key]) return iataCache[key];
+
+    const now = Date.now();
+    if (now - lastIataRequestTime < IATA_INTERVAL) {
+      console.warn("⏳ IATA-запрос пропущен — слишком часто");
+      return fallbackCodes[key] || null;
+    }
+    lastIataRequestTime = now;
 
     const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
     try {
@@ -39,29 +55,22 @@ export default async function handler(req, res) {
         return code === key || name === key || cityName.includes(key);
       });
 
-      const code = match?.code?.toUpperCase() || null;
+      const code = match?.code?.toUpperCase() || fallbackCodes[key] || null;
       if (code) iataCache[key] = code;
       return code;
     } catch (err) {
       console.error("❌ Ошибка получения IATA:", err);
-      return null;
+      return fallbackCodes[key] || null;
     }
-  };
-
-  const fallbackCodes = {
-    "париж": "PAR",
-    "берлин": "BER",
-    "москва": "MOW",
-    "рим": "ROM"
   };
 
   const origin = from.length === 3
     ? from.toUpperCase()
-    : await getIataCode(from) || fallbackCodes[normalize(from)] || null;
+    : await getIataCode(from);
 
   const destination = to.length === 3
     ? to.toUpperCase()
-    : await getIataCode(to) || fallbackCodes[normalize(to)] || null;
+    : await getIataCode(to);
 
   if (!origin || !destination) {
     return res.status(400).json({ error: "⛔ Не удалось определить IATA-коды." });
