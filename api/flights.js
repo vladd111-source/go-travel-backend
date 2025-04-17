@@ -1,7 +1,5 @@
-// ✅ Устойчивый API-обработчик Aviasales с IATA и fallback
-
 let lastRequestTime = 0;
-const MIN_INTERVAL = 3000; // минимум 3 секунды между запросами
+const MIN_INTERVAL = 3000; // 3 секунды
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
@@ -9,9 +7,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Content-Type", "application/json");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   const now = Date.now();
   if (now - lastRequestTime < MIN_INTERVAL) {
@@ -27,22 +23,37 @@ export default async function handler(req, res) {
 
   const getIataCode = async (cityName) => {
     const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(cityName)}&locale=ru&types[]=city`;
+
     try {
       const res = await fetch(url);
       const data = await res.json();
-      const match = data.find(item => 
-        item.iata && 
-        (item.name.toLowerCase() === cityName.toLowerCase() || item.name.toLowerCase().includes(cityName.toLowerCase()))
+
+      console.log(`🔍 IATA search for "${cityName}" →`, data.map(d => `${d.name} (${d.code})`).slice(0, 3));
+
+      const norm = (s) => (s || "").trim().toLowerCase();
+      const normCity = norm(cityName);
+
+      const match = data.find(item =>
+        item.code &&
+        (
+          norm(item.name) === normCity ||
+          norm(item.city_name)?.includes(normCity) ||
+          norm(item.name)?.includes(normCity) ||
+          norm(item.code) === normCity
+        )
       );
-      return match?.iata || null;
+
+      return match?.code || null;
     } catch (err) {
-      console.error("Ошибка получения IATA-кода:", err);
+      console.error("❌ Ошибка получения IATA-кода:", err);
       return null;
     }
   };
 
   const origin = from.length === 3 ? from.toUpperCase() : await getIataCode(from);
   const destination = to.length === 3 ? to.toUpperCase() : await getIataCode(to);
+
+  console.log("✈️ IATA:", { from, origin, to, destination });
 
   if (!origin || !destination) {
     return res.status(400).json({ error: "Could not resolve IATA codes for given cities." });
@@ -55,28 +66,29 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (Array.isArray(data?.data) && data.data.length) {
+      console.log("✅ Найдено рейсов:", data.data.length);
       return res.status(200).json(data.data);
     }
 
-    console.warn("⚠️ API вернул пустой ответ. Используем моки.");
+    console.warn("⚠️ API вернул пустой массив. Используем моки.");
   } catch (err) {
     console.error("❌ Ошибка при запросе к Aviasales API:", err);
   }
 
-  // Fallback-массив с моками
+  // Fallback (моки)
   return res.status(200).json([
     {
       origin,
       destination,
-      departure_at: `${date}T06:30:00`,
-      price: 41,
+      departure_at: `${date}T08:00:00`,
+      price: 50,
       airline: "W6"
     },
     {
       origin,
       destination,
-      departure_at: `${date}T18:50:00`,
-      price: 56,
+      departure_at: `${date}T14:30:00`,
+      price: 65,
       airline: "LO"
     }
   ]);
