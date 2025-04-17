@@ -1,5 +1,5 @@
 let lastRequestTime = 0;
-const MIN_INTERVAL = 3000; // минимум 3 секунды между запросами
+const MIN_INTERVAL = 3000; // 3 сек
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
@@ -11,40 +11,35 @@ export default async function handler(req, res) {
 
   const now = Date.now();
   if (now - lastRequestTime < MIN_INTERVAL) {
-    return res.status(429).json({ error: "Too many requests. Please wait a moment." });
+    return res.status(429).json({ error: "⏳ Слишком много запросов. Подождите немного." });
   }
   lastRequestTime = now;
 
   const { from = "", to = "", date = "" } = req.query;
 
   if (!from || !to || !date) {
-    return res.status(400).json({ error: "Missing required query parameters: from, to, date" });
+    return res.status(400).json({ error: "⛔ Параметры запроса не заданы: from, to, date" });
   }
 
-  const getIataCode = async (cityName) => {
-    const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(cityName)}&locale=ru&types[]=city`;
+  const normalize = s => (s || "").trim().toLowerCase();
+
+  const getIataCode = async (city) => {
+    const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=ru&types[]=city`;
     try {
       const res = await fetch(url);
-      const data = await res.json();
+      const json = await res.json();
 
-      console.log(`🔍 IATA search for "${cityName}" →`, data.map(d => `${d.name} (${d.code})`).slice(0, 3));
-
-      const norm = (s) => (s || "").trim().toLowerCase();
-      const normCity = norm(cityName);
-
-      const match = data.find(item =>
-        item.code &&
-        (
-          norm(item.name) === normCity ||
-          norm(item.city_name)?.includes(normCity) ||
-          norm(item.name)?.includes(normCity) ||
-          norm(item.code) === normCity
-        )
-      );
+      const match = json.find(item => {
+        const name = normalize(item.name);
+        const cityName = normalize(item.city_name);
+        const code = normalize(item.code);
+        const input = normalize(city);
+        return code === input || name === input || cityName.includes(input);
+      });
 
       return match?.code || null;
     } catch (err) {
-      console.error("❌ Ошибка получения IATA-кода:", err);
+      console.error("❌ IATA ошибка:", err);
       return null;
     }
   };
@@ -52,29 +47,29 @@ export default async function handler(req, res) {
   const origin = from.length === 3 ? from.toUpperCase() : await getIataCode(from);
   const destination = to.length === 3 ? to.toUpperCase() : await getIataCode(to);
 
-  console.log("✈️ IATA:", { from, origin, to, destination });
-
   if (!origin || !destination) {
-    return res.status(400).json({ error: "Could not resolve IATA codes for given cities." });
+    return res.status(400).json({ error: "⛔ Не удалось определить IATA-коды." });
   }
+
+  console.log("🔍 IATA:", { origin, destination });
 
   const apiUrl = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&destination=${destination}&departure_at=${date}&currency=usd&token=067df6a5f1de28c8a898bc83744dfdcd`;
 
   try {
-    const response = await fetch(apiUrl);
-    const data = await response.json();
+    const apiRes = await fetch(apiUrl);
+    const result = await apiRes.json();
 
-    if (Array.isArray(data?.data) && data.data.length) {
-      console.log("✅ Найдено рейсов:", data.data.length);
-      return res.status(200).json(data.data);
+    if (Array.isArray(result?.data) && result.data.length > 0) {
+      console.log(`✅ Найдено рейсов: ${result.data.length}`);
+      return res.status(200).json(result.data);
     }
 
-    console.warn("⚠️ API вернул пустой массив. Используем моки.");
+    console.warn("⚠️ Пустой ответ от API, используем моки.");
   } catch (err) {
-    console.error("❌ Ошибка при запросе к Aviasales API:", err);
+    console.error("❌ Ошибка запроса к API:", err);
   }
 
-  // Fallback (моки)
+  // 🧪 Fallback данные
   return res.status(200).json([
     {
       origin,
@@ -86,9 +81,9 @@ export default async function handler(req, res) {
     {
       origin,
       destination,
-      departure_at: `${date}T14:30:00`,
-      price: 65,
-      airline: "LO"
+      departure_at: `${date}T15:20:00`,
+      price: 69,
+      airline: "FR"
     }
   ]);
 }
