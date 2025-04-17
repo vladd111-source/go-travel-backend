@@ -1,5 +1,5 @@
 let lastRequestTime = 0;
-const MIN_INTERVAL = 3000; // 3 секунды
+const MIN_INTERVAL = 3000; // минимум 3 секунды между запросами
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
@@ -23,7 +23,6 @@ export default async function handler(req, res) {
 
   const getIataCode = async (cityName) => {
     const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(cityName)}&locale=ru&types[]=city`;
-
     try {
       const res = await fetch(url);
       const data = await res.json();
