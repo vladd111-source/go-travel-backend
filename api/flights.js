@@ -1,7 +1,10 @@
 const requestLog = {};
 const iataCache = {};
-const MIN_INTERVAL = 3000;      // Защита от флуда по IP
-const IATA_INTERVAL = 5000;     // Защита от частых IATA-запросов
+const MIN_INTERVAL = 3000;
+const IATA_INTERVAL = 5000;
+
+const iataQueue = [];
+let processingQueue = false;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
@@ -14,9 +17,8 @@ export default async function handler(req, res) {
   const now = Date.now();
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress || "unknown";
 
-  if (!requestLog[ip]) requestLog[ip] = { lastRequest: 0, lastIataRequest: 0 };
+  if (!requestLog[ip]) requestLog[ip] = { lastRequest: 0 };
 
-  // 🚫 Частые основные запросы
   if (now - requestLog[ip].lastRequest < MIN_INTERVAL) {
     return res.status(429).json({ error: "⏳ Слишком много запросов. Подождите немного." });
   }
@@ -37,24 +39,35 @@ export default async function handler(req, res) {
 
   const delay = ms => new Promise(res => setTimeout(res, ms));
 
-  // 🔄 IATA с повтором
-  const getIataCode = async (city) => {
-    const key = normalize(city);
-    if (iataCache[key]) return iataCache[key];
+  // Очередь IATA-запросов
+  const getIataQueued = city => {
+    return new Promise(resolve => {
+      iataQueue.push({ city, resolve });
+      processIataQueue();
+    });
+  };
 
-    if (now - requestLog[ip].lastIataRequest < IATA_INTERVAL) {
-      console.warn(`⏳ IATA-запрос от ${ip} пропущен — слишком часто`);
-      return fallbackCodes[key] || null;
+  async function processIataQueue() {
+    if (processingQueue || iataQueue.length === 0) return;
+
+    processingQueue = true;
+    const { city, resolve } = iataQueue.shift();
+    const key = normalize(city);
+
+    if (iataCache[key]) {
+      resolve(iataCache[key]);
+      processingQueue = false;
+      processIataQueue();
+      return;
     }
 
-    requestLog[ip].lastIataRequest = now;
     const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const res = await fetch(url);
         if (res.status === 429) {
-          console.warn(`⚠️ 429 при IATA, попытка ${attempt + 1}`);
+          console.warn(`⚠️ 429 от IATA (${city}), попытка ${attempt + 1}`);
           await delay(1000 * (attempt + 1));
           continue;
         }
@@ -69,20 +82,25 @@ export default async function handler(req, res) {
 
         const code = match?.code?.toUpperCase() || fallbackCodes[key] || null;
         if (code) iataCache[key] = code;
-        return code;
-
+        resolve(code);
+        break;
       } catch (err) {
-        console.error("❌ Ошибка получения IATA:", err);
+        console.error(`❌ Ошибка запроса IATA (${city}):`, err);
         await delay(500);
       }
     }
 
-    console.warn("❌ Не удалось получить IATA, возвращаем fallback");
-    return fallbackCodes[key] || null;
-  };
+    if (!iataCache[key]) {
+      console.warn(`⚠️ Fallback IATA (${city})`);
+      resolve(fallbackCodes[key] || null);
+    }
 
-  const origin = from.length === 3 ? from.toUpperCase() : await getIataCode(from);
-  const destination = to.length === 3 ? to.toUpperCase() : await getIataCode(to);
+    processingQueue = false;
+    processIataQueue(); // обрабатываем следующего
+  }
+
+  const origin = from.length === 3 ? from.toUpperCase() : await getIataQueued(from);
+  const destination = to.length === 3 ? to.toUpperCase() : await getIataQueued(to);
 
   if (!origin || !destination) {
     return res.status(400).json({ error: "⛔ Не удалось определить IATA-коды." });
@@ -101,12 +119,12 @@ export default async function handler(req, res) {
       return res.status(200).json(result.data);
     }
 
-    console.warn("⚠️ Пустой ответ от API. Используем моки.");
+    console.warn("⚠️ API пуст. Используем fallback.");
   } catch (err) {
-    console.error("❌ Ошибка API Aviasales:", err);
+    console.error("❌ Ошибка при запросе к API Aviasales:", err);
   }
 
-  // 🧪 Fallback
+  // 🧪 Мок-ответ
   return res.status(200).json([
     {
       origin,
