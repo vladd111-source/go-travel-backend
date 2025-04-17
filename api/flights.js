@@ -1,8 +1,7 @@
-let lastRequestTime = 0;
-let lastIataRequestTime = 0; // 🔒 защита IATA
-const MIN_INTERVAL = 3000; // 3 секунды
-const IATA_INTERVAL = 5000; // минимум 5 сек между запросами к IATA
-const iataCache = {}; // 🔁 Кэш IATA-кодов
+const requestLog = {};
+const iataCache = {};
+const MIN_INTERVAL = 3000;      // Защита от флуда по IP
+const IATA_INTERVAL = 5000;     // Защита от частых IATA-запросов
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
@@ -12,11 +11,17 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  // 👤 Получаем IP клиента
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress;
   const now = Date.now();
-  if (now - lastRequestTime < MIN_INTERVAL) {
+
+  if (!requestLog[ip]) requestLog[ip] = { lastRequest: 0, lastIataRequest: 0 };
+
+  if (now - requestLog[ip].lastRequest < MIN_INTERVAL) {
     return res.status(429).json({ error: "⏳ Слишком много запросов. Подождите немного." });
   }
-  lastRequestTime = now;
+
+  requestLog[ip].lastRequest = now;
 
   const { from = "", to = "", date = "" } = req.query;
   if (!from || !to || !date) {
@@ -36,14 +41,15 @@ export default async function handler(req, res) {
     const key = normalize(city);
     if (iataCache[key]) return iataCache[key];
 
-    const now = Date.now();
-    if (now - lastIataRequestTime < IATA_INTERVAL) {
-      console.warn("⏳ IATA-запрос пропущен — слишком часто");
+    if (now - requestLog[ip].lastIataRequest < IATA_INTERVAL) {
+      console.warn(`⏳ IATA-запрос от ${ip} пропущен — слишком часто`);
       return fallbackCodes[key] || null;
     }
-    lastIataRequestTime = now;
+
+    requestLog[ip].lastIataRequest = now;
 
     const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
+
     try {
       const res = await fetch(url);
       const json = await res.json();
@@ -64,19 +70,14 @@ export default async function handler(req, res) {
     }
   };
 
-  const origin = from.length === 3
-    ? from.toUpperCase()
-    : await getIataCode(from);
-
-  const destination = to.length === 3
-    ? to.toUpperCase()
-    : await getIataCode(to);
+  const origin = from.length === 3 ? from.toUpperCase() : await getIataCode(from);
+  const destination = to.length === 3 ? to.toUpperCase() : await getIataCode(to);
 
   if (!origin || !destination) {
     return res.status(400).json({ error: "⛔ Не удалось определить IATA-коды." });
   }
 
-  console.log("🔍 Запрос:", { origin, destination, date });
+  console.log("🔍 Запрос:", { origin, destination, date, ip });
 
   const apiUrl = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&destination=${destination}&departure_at=${date}&currency=usd&token=067df6a5f1de28c8a898bc83744dfdcd`;
 
