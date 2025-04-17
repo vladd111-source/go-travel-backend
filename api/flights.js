@@ -22,6 +22,7 @@ export default async function handler(req, res) {
   if (now - requestLog[ip].lastRequest < MIN_INTERVAL) {
     return res.status(429).json({ error: "⏳ Слишком много запросов. Подождите немного." });
   }
+
   requestLog[ip].lastRequest = now;
 
   const { from = "", to = "", date = "" } = req.query;
@@ -30,6 +31,7 @@ export default async function handler(req, res) {
   }
 
   const normalize = s => (s || "").trim().toLowerCase();
+
   const fallbackCodes = {
     "париж": "PAR",
     "берлин": "BER",
@@ -39,7 +41,6 @@ export default async function handler(req, res) {
 
   const delay = ms => new Promise(res => setTimeout(res, ms));
 
-  // Очередь IATA-запросов
   const getIataQueued = city => {
     return new Promise(resolve => {
       iataQueue.push({ city, resolve });
@@ -51,52 +52,62 @@ export default async function handler(req, res) {
     if (processingQueue || iataQueue.length === 0) return;
 
     processingQueue = true;
-    const { city, resolve } = iataQueue.shift();
-    const key = normalize(city);
 
-    if (iataCache[key]) {
-      resolve(iataCache[key]);
-      processingQueue = false;
-      processIataQueue();
-      return;
-    }
+    while (iataQueue.length > 0) {
+      const { city, resolve } = iataQueue.shift();
+      const key = normalize(city);
 
-    const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await fetch(url);
-        if (res.status === 429) {
-          console.warn(`⚠️ 429 от IATA (${city}), попытка ${attempt + 1}`);
-          await delay(1000 * (attempt + 1));
-          continue;
-        }
-
-        const json = await res.json();
-        const match = json.find(item => {
-          const code = normalize(item.code);
-          const name = normalize(item.name);
-          const cityName = normalize(item.city_name);
-          return code === key || name === key || cityName.includes(key);
-        });
-
-        const code = match?.code?.toUpperCase() || fallbackCodes[key] || null;
-        if (code) iataCache[key] = code;
-        resolve(code);
-        break;
-      } catch (err) {
-        console.error(`❌ Ошибка запроса IATA (${city}):`, err);
-        await delay(500);
+      if (iataCache[key]) {
+        resolve(iataCache[key]);
+        continue;
       }
-    }
 
-    if (!iataCache[key]) {
-      console.warn(`⚠️ Fallback IATA (${city})`);
-      resolve(fallbackCodes[key] || null);
+      const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
+
+      let foundCode = null;
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch(url);
+
+          if (res.status === 429) {
+            console.warn(`⚠️ 429 от IATA (${city}), попытка ${attempt + 1}`);
+            await delay(1000 * (attempt + 1));
+            continue;
+          }
+
+          const json = await res.json();
+
+          const match = json.find(item => {
+            const code = normalize(item.code);
+            const name = normalize(item.name);
+            const cityName = normalize(item.city_name);
+            return code === key || name === key || cityName.includes(key);
+          });
+
+          foundCode = match?.code?.toUpperCase() || fallbackCodes[key] || null;
+
+          if (foundCode) {
+            iataCache[key] = foundCode;
+            break;
+          }
+
+        } catch (err) {
+          console.error(`❌ Ошибка запроса IATA (${city}):`, err);
+          await delay(500);
+        }
+      }
+
+      if (!foundCode) {
+        console.warn(`⚠️ Fallback IATA (${city})`);
+        foundCode = fallbackCodes[key] || null;
+      }
+
+      resolve(foundCode);
+      await delay(500); // 🔄 небольшой буфер, чтобы не триггерить лимиты
     }
 
     processingQueue = false;
-    processIataQueue(); // обрабатываем следующего
   }
 
   const origin = from.length === 3 ? from.toUpperCase() : await getIataQueued(from);
@@ -119,12 +130,11 @@ export default async function handler(req, res) {
       return res.status(200).json(result.data);
     }
 
-    console.warn("⚠️ API пуст. Используем fallback.");
+    console.warn("⚠️ API пуст. Используем моки.");
   } catch (err) {
     console.error("❌ Ошибка при запросе к API Aviasales:", err);
   }
 
-  // 🧪 Мок-ответ
   return res.status(200).json([
     {
       origin,
