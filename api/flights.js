@@ -30,7 +30,7 @@ export default async function handler(req, res) {
       return iataCache[key]; // 🔁 Возврат из кэша
     }
 
-    const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=ru&types[]=city`;
+   const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
 
     try {
       const res = await fetch(url);
