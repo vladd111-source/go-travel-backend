@@ -1,5 +1,6 @@
 let lastRequestTime = 0;
 const MIN_INTERVAL = 3000; // 3 сек
+const iataCache = {}; // 🔁 Кэш для IATA-кодов
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
@@ -24,7 +25,13 @@ export default async function handler(req, res) {
   const normalize = s => (s || "").trim().toLowerCase();
 
   const getIataCode = async (city) => {
+    const key = normalize(city);
+    if (iataCache[key]) {
+      return iataCache[key]; // 🔁 Возврат из кэша
+    }
+
     const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=ru&types[]=city`;
+
     try {
       const res = await fetch(url);
       const json = await res.json();
@@ -33,11 +40,14 @@ export default async function handler(req, res) {
         const name = normalize(item.name);
         const cityName = normalize(item.city_name);
         const code = normalize(item.code);
-        const input = normalize(city);
-        return code === input || name === input || cityName.includes(input);
+        return code === key || name === key || cityName.includes(key);
       });
 
-      return match?.code || null;
+      const code = match?.code || null;
+      if (code) {
+        iataCache[key] = code; // 🧠 Сохраняем в кэш
+      }
+      return code;
     } catch (err) {
       console.error("❌ IATA ошибка:", err);
       return null;
@@ -69,7 +79,7 @@ export default async function handler(req, res) {
     console.error("❌ Ошибка запроса к API:", err);
   }
 
-  // 🧪 Fallback данные
+  // 🧪 Fallback (моки)
   return res.status(200).json([
     {
       origin,
