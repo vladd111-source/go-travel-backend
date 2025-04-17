@@ -23,14 +23,13 @@ export default async function handler(req, res) {
   }
 
   const normalize = s => (s || "").trim().toLowerCase();
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
   const getIataCode = async (city) => {
     const key = normalize(city);
-    if (iataCache[key]) {
-      return iataCache[key]; // 🔁 Возврат из кэша
-    }
+    if (iataCache[key]) return iataCache[key];
 
-   const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
+    const url = `https://autocomplete.travelpayouts.com/places2?term=${encodeURIComponent(city)}&locale=en&types[]=city`;
 
     try {
       const res = await fetch(url);
@@ -45,8 +44,9 @@ export default async function handler(req, res) {
 
       const code = match?.code || null;
       if (code) {
-        iataCache[key] = code; // 🧠 Сохраняем в кэш
+        iataCache[key] = code;
       }
+
       return code;
     } catch (err) {
       console.error("❌ IATA ошибка:", err);
@@ -55,6 +55,7 @@ export default async function handler(req, res) {
   };
 
   const origin = from.length === 3 ? from.toUpperCase() : await getIataCode(from);
+  await delay(500); // ⏱️ Пауза между запросами
   const destination = to.length === 3 ? to.toUpperCase() : await getIataCode(to);
 
   if (!origin || !destination) {
@@ -79,7 +80,7 @@ export default async function handler(req, res) {
     console.error("❌ Ошибка запроса к API:", err);
   }
 
-  // 🧪 Fallback (моки)
+  // 🧪 Моки
   return res.status(200).json([
     {
       origin,
