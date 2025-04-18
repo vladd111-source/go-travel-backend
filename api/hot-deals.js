@@ -16,15 +16,15 @@ export default async function handler(req, res) {
 
   const now = Date.now();
   const limit = parseInt(req.query.limit || "10", 10);
-  const maxPrice = parseFloat(req.query.maxPrice || "100");
 
-  const responseWrapper = (data, title) => {
+  const responseWrapper = (data, title = "🔥 Горячие предложения") => {
     return res.status(200).json({ title, deals: data });
   };
 
+  // Если кэш валиден — отдаём
   if (hotDealsCache.length && now - lastUpdate < CACHE_TTL) {
     console.log("📦 Отдаём hot-deals из кэша");
-    return responseWrapper(hotDealsCache.slice(0, limit), "🔥 Горячие предложения");
+    return responseWrapper(hotDealsCache.slice(0, limit));
   }
 
   const start = new Date();
@@ -46,16 +46,11 @@ export default async function handler(req, res) {
       if (Array.isArray(data.data)) {
         console.log(`📍 ${route.from} → ${route.to}: всего ${data.data.length} рейсов`);
 
-        let filtered = data.data.filter(f => f.found_direct && f.price <= maxPrice);
-
-        if (filtered.length === 0) {
-          console.warn(`🔁 Без прямых рейсов: ${route.from} → ${route.to}`);
-          filtered = data.data.filter(f => f.price <= maxPrice);
-        }
+        const filtered = data.data.filter(f => f.found_direct); // только прямые рейсы
 
         const enriched = filtered.map(f => ({
           ...f,
-          highlight: f.price < maxPrice,
+          highlight: true, // Подсвечиваем всё
         }));
 
         results.push(...enriched);
@@ -65,6 +60,7 @@ export default async function handler(req, res) {
     }
   }
 
+  // Сортируем по цене
   results.sort((a, b) => (a.price || a.value) - (b.price || b.value));
 
   const top = results.slice(0, limit);
@@ -72,6 +68,5 @@ export default async function handler(req, res) {
   lastUpdate = now;
 
   console.log(`✅ Итог: ${top.length} hot-deals`);
-
-  return responseWrapper(top, `🔥 Билеты до $${maxPrice}`);
+  return responseWrapper(top);
 }
