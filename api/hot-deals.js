@@ -7,9 +7,14 @@ const token = "067df6a5f1de28c8a898bc83744dfdcd";
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
-  const origin = (req.query.origin || "MOW").toUpperCase();
+  const origin = (req.query.origin || "").toUpperCase().trim();
   const limit = parseInt(req.query.limit || "10", 10);
   const now = Date.now();
+
+  // 🛑 Обязательный параметр
+  if (!origin || origin.length !== 3) {
+    return res.status(400).json({ error: "Некорректный параметр origin (IATA-код)" });
+  }
 
   const responseWrapper = (deals, title = "🔥 Горячие предложения") => {
     return res.status(200).json({ title, deals });
@@ -21,7 +26,7 @@ export default async function handler(req, res) {
     return responseWrapper(hotDealsCache[origin].slice(0, limit));
   }
 
-  // 🔍 Дата: ближайшие 60 дней
+  // 📅 Даты: ближайшие 60 дней
   const start = new Date();
   const end = new Date();
   end.setDate(start.getDate() + 60);
@@ -32,11 +37,19 @@ export default async function handler(req, res) {
   const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&departure_at=${dateFrom}&return_at=${dateTo}&currency=usd&token=${token}`;
 
   try {
+    console.log(`🌐 Запрос Aviasales для ${origin}: ${url}`);
     const apiRes = await fetch(url);
+
+    if (!apiRes.ok) {
+      console.error(`❌ Ошибка от API: ${apiRes.status} ${apiRes.statusText}`);
+      return res.status(apiRes.status).json({ error: "Ошибка ответа от Aviasales API" });
+    }
+
     const data = await apiRes.json();
 
     if (!Array.isArray(data.data)) {
-      return res.status(500).json({ error: "Ошибка формата ответа от API" });
+      console.error("⚠️ Неожиданный формат ответа:", data);
+      return res.status(500).json({ error: "Неверный формат ответа от API" });
     }
 
     console.log(`📍 ${origin}: получено ${data.data.length} направлений`);
@@ -56,7 +69,7 @@ export default async function handler(req, res) {
 
     return responseWrapper(filtered);
   } catch (err) {
-    console.error("❌ Ошибка загрузки hot-deals:", err);
+    console.error("❌ Ошибка запроса к Aviasales:", err);
     return res.status(500).json({ error: "Ошибка загрузки горячих предложений" });
   }
 }
