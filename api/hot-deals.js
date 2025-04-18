@@ -13,10 +13,11 @@ export default async function handler(req, res) {
 
   // 🛑 Обязательный параметр
   if (!origin || origin.length !== 3) {
+    console.warn("🚫 Некорректный origin:", origin);
     return res.status(400).json({ error: "Некорректный параметр origin (IATA-код)" });
   }
 
-  const responseWrapper = (deals, title = "🔥 Горячие предложения") => {
+  const responseWrapper = (deals, title = `🔥 Горячие рейсы из ${origin}`) => {
     return res.status(200).json({ title, deals });
   };
 
@@ -50,6 +51,11 @@ export default async function handler(req, res) {
     if (!Array.isArray(data.data)) {
       console.error("⚠️ Неожиданный формат ответа:", data);
       return res.status(500).json({ error: "Неверный формат ответа от API" });
+    }
+
+    if (data.data.length === 0) {
+      console.warn(`📭 Нет направлений для ${origin}`);
+      return responseWrapper([], `🔥 Нет доступных рейсов из ${origin}`);
     }
 
     console.log(`📍 ${origin}: получено ${data.data.length} направлений`);
