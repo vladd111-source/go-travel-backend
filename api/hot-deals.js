@@ -1,3 +1,4 @@
+console.log("🔧 Origin получен:", origin);
 let hotDealsCache = {};
 let lastUpdate = 0;
 const CACHE_TTL = 1000 * 60 * 15; // 15 минут
