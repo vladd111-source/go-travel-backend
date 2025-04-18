@@ -1,12 +1,19 @@
 let hotDealsCache = {};
 let lastUpdate = 0;
-const CACHE_TTL = 1000 * 60 * 15;
+const CACHE_TTL = 1000 * 60 * 15; // 15 минут
 
 const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
 export default async function handler(req, res) {
-  // ✅ Разрешаем запросы с фронтенда
+  // ✅ Разрешаем CORS
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // 🔄 Обработка preflight-запроса
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
 
   const origin = (req.query.origin || "").toUpperCase().trim();
   const limit = parseInt(req.query.limit || "10", 10);
@@ -14,6 +21,7 @@ export default async function handler(req, res) {
 
   console.log("🔧 Origin получен:", origin);
 
+  // 🛑 Проверка параметра
   if (!origin || origin.length !== 3) {
     console.warn("🚫 Некорректный origin:", origin);
     return res.status(400).json({ error: "Некорректный параметр origin (IATA-код)" });
@@ -23,12 +31,13 @@ export default async function handler(req, res) {
     return res.status(200).json({ title, deals });
   };
 
-  // 🔁 Кэш
+  // 📦 Отдаём из кэша
   if (hotDealsCache[origin] && now - lastUpdate < CACHE_TTL) {
     console.log(`📦 Отдаём hot-deals из кэша (${origin})`);
     return responseWrapper(hotDealsCache[origin].slice(0, limit));
   }
 
+  // 📅 Диапазон дат: сегодня → +60 дней
   const start = new Date();
   const end = new Date();
   end.setDate(start.getDate() + 60);
@@ -68,6 +77,7 @@ export default async function handler(req, res) {
         highlight: true,
       }));
 
+    // 💾 Кэшируем
     hotDealsCache[origin] = filtered;
     lastUpdate = now;
 
