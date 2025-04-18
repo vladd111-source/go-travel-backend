@@ -11,47 +11,52 @@ const popularRoutes = [
 
 const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
-// 📅 Генерация дат от +14 до +60 дней вперёд
-function getDepartureDates() {
-  const dates = [];
-  const now = new Date();
-  for (let i = 14; i <= 60; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
-    dates.push(d.toISOString().split("T")[0]);
-  }
-  return dates;
-}
-
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   const now = Date.now();
+  const limit = parseInt(req.query.limit) || 10;
+
   if (hotDealsCache.length && now - lastUpdate < CACHE_TTL) {
-    return res.status(200).json(hotDealsCache);
+    return res.status(200).json(hotDealsCache.slice(0, limit));
   }
 
+  const start = new Date();
+  const end = new Date();
+  end.setDate(start.getDate() + 60);
+
+  const dateFrom = start.toISOString().split("T")[0];
+  const dateTo = end.toISOString().split("T")[0];
+
   const results = [];
-  const dates = getDepartureDates();
 
   for (const route of popularRoutes) {
-    for (const date of dates) {
-      const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${route.from}&destination=${route.to}&departure_at=${date}&currency=usd&token=${token}`;
+    const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${route.from}&destination=${route.to}&departure_at=${dateFrom}&return_at=${dateTo}&currency=usd&token=${token}`;
 
-      try {
-        const res = await fetch(url);
-        const data = await res.json();
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
 
-        const sorted = (data.data || []).sort((a, b) => a.price - b.price);
-        if (sorted[0]) results.push(sorted[0]);
-      } catch (err) {
-        console.warn("⚠️ Ошибка при загрузке:", route, date, err);
+      if (Array.isArray(data.data)) {
+        const filtered = data.data
+          .filter(f => f.found_direct) // только прямые
+          .map(f => ({
+            ...f,
+            highlight: f.price < 40, // 💥 добавим флаг для фронта
+          }));
+        results.push(...filtered);
       }
+    } catch (err) {
+      console.warn("⚠️ Ошибка загрузки маршрута:", route, err);
     }
   }
 
-  hotDealsCache = results;
-  lastUpdate = Date.now();
+  // 🔽 Сортировка по цене
+  results.sort((a, b) => (a.price || a.value) - (b.price || b.value));
 
-  return res.status(200).json(results);
+  const top = results.slice(0, limit);
+  hotDealsCache = top;
+  lastUpdate = now;
+
+  return res.status(200).json(top);
 }
