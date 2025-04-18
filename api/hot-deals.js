@@ -11,6 +11,18 @@ const popularRoutes = [
 
 const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
+// 👉 Функция генерации массива дат от 14 до 60 дней
+function getDepartureDates() {
+  const dates = [];
+  const now = new Date();
+  for (let i = 14; i <= 60; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    dates.push(d.toISOString().split("T")[0]);
+  }
+  return dates;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
@@ -19,30 +31,26 @@ export default async function handler(req, res) {
     return res.status(200).json(hotDealsCache);
   }
 
-  const date = new Date().toISOString().split("T")[0];
   const results = [];
+  const dates = getDepartureDates();
 
   for (const route of popularRoutes) {
-    const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${route.from}&destination=${route.to}&departure_at=${date}&currency=usd&token=${token}`;
+    for (const date of dates) {
+      const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${route.from}&destination=${route.to}&departure_at=${date}&currency=usd&token=${token}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
 
-    try {
-      const res = await fetch(url);
-      if (res.status === 429) {
-        console.warn(`⚠️ 429 Too Many Requests for route ${route.from} → ${route.to}`);
-        continue;
+        const hot = (data.data || []).filter(f => f.price <= 50);
+        results.push(...hot);
+      } catch (err) {
+        console.warn("⚠️ Ошибка при загрузке:", route, date, err);
       }
-
-      const data = await res.json();
-      const hot = (data.data || []).filter(f => f.price <= 50);
-      results.push(...hot);
-    } catch (err) {
-      console.warn("⚠️ Ошибка при загрузке направления:", route, err);
     }
   }
 
-  results.sort((a, b) => a.price - b.price);
-  hotDealsCache = results.slice(0, 10); // максимум 10 предложений
-  lastUpdate = now;
+  hotDealsCache = results;
+  lastUpdate = Date.now();
 
-  return res.status(200).json(hotDealsCache);
+  return res.status(200).json(results);
 }
