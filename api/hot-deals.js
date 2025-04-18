@@ -11,7 +11,7 @@ const popularRoutes = [
 
 const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
-// 👉 Функция генерации массива дат от 14 до 60 дней
+// 📅 Генерация дат от +14 до +60 дней вперёд
 function getDepartureDates() {
   const dates = [];
   const now = new Date();
@@ -37,12 +37,13 @@ export default async function handler(req, res) {
   for (const route of popularRoutes) {
     for (const date of dates) {
       const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${route.from}&destination=${route.to}&departure_at=${date}&currency=usd&token=${token}`;
+
       try {
         const res = await fetch(url);
         const data = await res.json();
 
-        const hot = (data.data || []).filter(f => f.price <= 50);
-        results.push(...hot);
+        const sorted = (data.data || []).sort((a, b) => a.price - b.price);
+        if (sorted[0]) results.push(sorted[0]);
       } catch (err) {
         console.warn("⚠️ Ошибка при загрузке:", route, date, err);
       }
