@@ -31,21 +31,14 @@ export default async function handler(req, res) {
     return res.status(200).json({ title, deals });
   };
 
-  // 📦 Отдаём из кэша
+  // 📦 Кэш
   if (hotDealsCache[origin] && now - lastUpdate < CACHE_TTL) {
     console.log(`📦 Отдаём hot-deals из кэша (${origin})`);
     return responseWrapper(hotDealsCache[origin].slice(0, limit));
   }
 
-  // 📅 Диапазон дат: сегодня → +60 дней
-  const start = new Date();
-  const end = new Date();
-  end.setDate(start.getDate() + 60);
-
-  const dateFrom = start.toISOString().split("T")[0];
-  const dateTo = end.toISOString().split("T")[0];
-
-  const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&departure_at=${dateFrom}&return_at=${dateTo}&currency=usd&token=${token}`;
+  // ✅ Новый URL без ограничений по дате
+  const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&currency=usd&token=${token}`;
 
   try {
     console.log(`🌐 Запрос Aviasales для ${origin}: ${url}`);
@@ -77,7 +70,7 @@ export default async function handler(req, res) {
         highlight: true,
       }));
 
-    // 💾 Кэшируем
+    // 💾 Кэш
     hotDealsCache[origin] = filtered;
     lastUpdate = now;
 
