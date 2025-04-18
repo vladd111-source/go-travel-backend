@@ -37,7 +37,6 @@ export default async function handler(req, res) {
     return responseWrapper(hotDealsCache[origin].slice(0, limit));
   }
 
-  // ✅ Новый URL без ограничений по дате
   const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&currency=usd&token=${token}`;
 
   try {
@@ -62,7 +61,7 @@ export default async function handler(req, res) {
     }
 
     const filtered = data.data
-      .filter(f => f.found_direct)
+      .filter(f => f.price && f.destination && f.departure_at)
       .sort((a, b) => a.price - b.price)
       .slice(0, limit)
       .map(f => ({
