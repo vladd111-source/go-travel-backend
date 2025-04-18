@@ -16,9 +16,10 @@ export default async function handler(req, res) {
 
   const now = Date.now();
   const limit = parseInt(req.query.limit || "10", 10);
-  const maxPrice = parseFloat(req.query.maxPrice || "60");
+  const maxPrice = parseFloat(req.query.maxPrice || "100");
 
   if (hotDealsCache.length && now - lastUpdate < CACHE_TTL) {
+    console.log("📦 Отдаём hot-deals из кэша");
     return res.status(200).json(hotDealsCache.slice(0, limit));
   }
 
@@ -39,25 +40,36 @@ export default async function handler(req, res) {
       const data = await apiRes.json();
 
       if (Array.isArray(data.data)) {
-        const filtered = data.data
-          .filter(f => f.found_direct && f.price <= maxPrice)
-          .map(f => ({
-            ...f,
-            highlight: f.price < 60, // 🔥 подсветка дешевых
-          }));
-        results.push(...filtered);
+        console.log(`📍 ${route.from} → ${route.to}: всего ${data.data.length} рейсов`);
+
+        let filtered = data.data.filter(f => f.found_direct && f.price <= maxPrice);
+
+        // если после фильтра пусто — пробуем без found_direct
+        if (filtered.length === 0) {
+          console.warn(`🔁 Без прямых рейсов: ${route.from} → ${route.to}`);
+          filtered = data.data.filter(f => f.price <= maxPrice);
+        }
+
+        const enriched = filtered.map(f => ({
+          ...f,
+          highlight: f.price < maxPrice, // 🔥 подсветка если ниже порога
+        }));
+
+        results.push(...enriched);
       }
     } catch (err) {
       console.warn("⚠️ Ошибка загрузки маршрута:", route, err);
     }
   }
 
-  // 🔽 Сортировка по цене (возрастание)
+  // 🔽 Сортировка по цене
   results.sort((a, b) => (a.price || a.value) - (b.price || b.value));
 
   const top = results.slice(0, limit);
   hotDealsCache = top;
   lastUpdate = now;
+
+  console.log(`✅ Итог: ${top.length} hot-deals`);
 
   return res.status(200).json(top);
 }
