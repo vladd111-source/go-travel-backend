@@ -15,7 +15,8 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   const now = Date.now();
-  const limit = parseInt(req.query.limit) || 10;
+  const limit = parseInt(req.query.limit || "10", 10);
+  const maxPrice = parseFloat(req.query.maxPrice || "60");
 
   if (hotDealsCache.length && now - lastUpdate < CACHE_TTL) {
     return res.status(200).json(hotDealsCache.slice(0, limit));
@@ -34,15 +35,15 @@ export default async function handler(req, res) {
     const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${route.from}&destination=${route.to}&departure_at=${dateFrom}&return_at=${dateTo}&currency=usd&token=${token}`;
 
     try {
-      const res = await fetch(url);
-      const data = await res.json();
+      const apiRes = await fetch(url);
+      const data = await apiRes.json();
 
       if (Array.isArray(data.data)) {
         const filtered = data.data
-          .filter(f => f.found_direct) // только прямые
+          .filter(f => f.found_direct && f.price <= maxPrice)
           .map(f => ({
             ...f,
-            highlight: f.price < 40, // 💥 добавим флаг для фронта
+            highlight: f.price < 60, // 🔥 подсветка дешевых
           }));
         results.push(...filtered);
       }
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 🔽 Сортировка по цене
+  // 🔽 Сортировка по цене (возрастание)
   results.sort((a, b) => (a.price || a.value) - (b.price || b.value));
 
   const top = results.slice(0, limit);
