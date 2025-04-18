@@ -19,18 +19,20 @@ export default async function handler(req, res) {
     return res.status(200).json(hotDealsCache);
   }
 
-  const date = new Date();
-  const departure = date.toISOString().split("T")[0];
-
+  const date = new Date().toISOString().split("T")[0];
   const results = [];
 
   for (const route of popularRoutes) {
-    const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${route.from}&destination=${route.to}&departure_at=${departure}&currency=usd&token=${token}`;
-    
+    const url = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${route.from}&destination=${route.to}&departure_at=${date}&currency=usd&token=${token}`;
+
     try {
       const res = await fetch(url);
-      const data = await res.json();
+      if (res.status === 429) {
+        console.warn(`⚠️ 429 Too Many Requests for route ${route.from} → ${route.to}`);
+        continue;
+      }
 
+      const data = await res.json();
       const hot = (data.data || []).filter(f => f.price <= 50);
       results.push(...hot);
     } catch (err) {
@@ -38,8 +40,9 @@ export default async function handler(req, res) {
     }
   }
 
-  hotDealsCache = results;
-  lastUpdate = Date.now();
+  results.sort((a, b) => a.price - b.price);
+  hotDealsCache = results.slice(0, 10); // максимум 10 предложений
+  lastUpdate = now;
 
-  return res.status(200).json(results);
+  return res.status(200).json(hotDealsCache);
 }
