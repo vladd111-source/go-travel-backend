@@ -60,14 +60,21 @@ export default async function handler(req, res) {
       return responseWrapper([], `🔥 Нет доступных рейсов из ${origin}`);
     }
 
-    const filtered = data.data
-      .filter(f => f.price && f.destination && f.departure_at)
-      .sort((a, b) => a.price - b.price)
-      .slice(0, limit)
-      .map(f => ({
-        ...f,
-        highlight: true,
-      }));
+   const filtered = data.data
+  .filter(f => f.price && f.destination && f.departure_at)
+  .sort((a, b) => a.price - b.price)
+  .slice(0, limit)
+  .map(f => {
+    const dep = new Date(f.departure_at);
+    const ret = f.return_at ? new Date(f.return_at) : null;
+    const duration = ret ? Math.round((ret - dep) / 60000) : null;
+
+    return {
+      ...f,
+      highlight: true,
+      duration, // ← добавили расчетное поле вручную
+    };
+  });
 
     // 💾 Кэш
     hotDealsCache[origin] = filtered;
