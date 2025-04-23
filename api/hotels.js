@@ -1,4 +1,6 @@
+// Максимально улучшенный backend-обработчик для поиска отелей
 export default async function handler(req, res) {
+  // CORS заголовки
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', 'https://go-travel-frontend.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -8,6 +10,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  // Параметры запроса
   const originalCity = req.query.city || "Paris";
   const checkIn = req.query.checkIn;
   const checkOut = req.query.checkOut;
@@ -16,7 +19,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "❌ Не хватает параметров checkIn и checkOut" });
   }
 
-  // Перевод города
+  // Функция перевода города на английский
   async function translateCityToEnglish(city) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
 
@@ -45,7 +48,7 @@ export default async function handler(req, res) {
   const city = await translateCityToEnglish(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
-  // 💡 Используем HotelLook start.json для запросов с датами
+  // Endpoint для поиска отелей с датами
   const hotellookUrl = `https://engine.hotellook.com/api/v2/start.json?location=${encodeURIComponent(city)}&checkIn=${checkIn}&checkOut=${checkOut}&currency=usd&limit=100&token=${token}`;
 
   try {
@@ -59,16 +62,22 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    if (!Array.isArray(data)) {
-      console.error("❌ HotelLook API вернул не массив:", data);
-      return res.status(500).json({ error: `HotelLook API вернул не массив: ${JSON.stringify(data)}` });
+    // Проверка: API иногда возвращает объект с полем hotels
+    const hotelList = Array.isArray(data) ? data : data.hotels;
+
+    if (!Array.isArray(hotelList)) {
+      console.error("❌ HotelLook API вернул не массив:", hotelList);
+      return res.status(500).json({ error: `HotelLook API вернул не массив: ${JSON.stringify(hotelList)}` });
     }
 
-    const hotels = data.map(h => ({
+    const hotels = hotelList.map(h => ({
       name: h.hotelName || h.name || "Без названия",
       city: h.city || city,
-      price: h.priceFrom || h.priceAvg || 0,
-      rating: h.stars || h.rating || 0
+      price: h.priceFrom || h.priceAvg || h.minimalPrice || 0,
+      rating: h.stars || h.rating || 0,
+      stars: h.stars || 0,
+      location: h.location || h.geo || null,
+      id: h.hotelId || h.id || null
     }));
 
     return res.status(200).json(hotels);
