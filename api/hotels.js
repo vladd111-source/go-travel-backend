@@ -1,6 +1,6 @@
-// Максимально стабильный backend-обработчик поиска отелей
+// ✅ Максимально стабильный backend-обработчик поиска отелей
 export default async function handler(req, res) {
-  // ✅ CORS заголовки
+  // CORS заголовки
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
   }
 
-  // Перевод города на английский, если нужно
+  // 🔁 Перевод города на английский, если не латиница
   async function translateCityToEnglish(city) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
 
@@ -26,7 +26,9 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
-      return data?.translatedText || city;
+      const translated = data?.translatedText || city;
+      console.log(`📘 Перевод города: "${city}" → "${translated}"`);
+      return translated;
     } catch (err) {
       console.warn("⚠️ Ошибка перевода города:", err);
       return city;
@@ -36,15 +38,15 @@ export default async function handler(req, res) {
   const city = await translateCityToEnglish(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
-  // Используем надёжный endpoint без дат (cache.json)
- const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
-  
+  // Надёжный endpoint без ошибок — кэш с 100 отелями
+  const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
+
   try {
     const response = await fetch(hotellookUrl);
     const contentType = response.headers.get("content-type");
 
     if (!contentType?.includes("application/json")) {
-      console.error("❌ HotelLook вернул не JSON:", contentType);
+      console.error("❌ Неверный content-type от HotelLook:", contentType);
       return res.status(500).json({ error: `HotelLook вернул неправильный content-type: ${contentType}` });
     }
 
@@ -55,6 +57,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: `HotelLook API вернул не массив: ${JSON.stringify(data)}` });
     }
 
+    // Формируем массив отелей
     const hotels = data.map(h => ({
       id: h.hotelId || h.id || null,
       name: h.hotelName || h.name || "Без названия",
