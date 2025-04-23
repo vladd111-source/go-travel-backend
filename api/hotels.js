@@ -13,7 +13,6 @@ export default async function handler(req, res) {
 
   // 🔁 Перевод города (если не латиница)
   async function translateCityToEnglish(city) {
-    // Проверка: если город уже на латинице — не переводим
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
 
     try {
@@ -44,13 +43,20 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(hotellookUrl);
-    const data = await response.json();
+    const contentType = response.headers.get("content-type");
 
-    console.log("📦 Ответ от HotelLook API:", data);
+    if (!contentType?.includes("application/json")) {
+      console.error("❌ Ответ не JSON:", contentType);
+      return res.status(500).json({ error: `HotelLook вернул неправильный content-type: ${contentType}` });
+    }
+
+    const data = await response.json();
+    console.log("📦 Ответ от HotelLook API:", JSON.stringify(data, null, 2));
 
     if (!Array.isArray(data)) {
-      console.error("❌ HotelLook API вернул не массив:", data);
-      return res.status(500).json({ error: "HotelLook API вернул не массив" });
+      const error = typeof data === 'object' ? JSON.stringify(data) : String(data);
+      console.error("❌ HotelLook API вернул не массив:", error);
+      return res.status(500).json({ error: `HotelLook API вернул не массив: ${error}` });
     }
 
     const hotels = data.map(h => ({
