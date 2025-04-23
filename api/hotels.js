@@ -46,7 +46,7 @@ export default async function handler(req, res) {
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
   // ✅ Новый endpoint и параметры
-  const hotellookUrl = `https://engine.hotellook.com/api/v2/start.json?location=${encodeURIComponent(city)}&checkIn=${checkIn}&checkOut=${checkOut}&currency=usd&language=en&limit=100&token=${token}`;
+ const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&checkIn=${checkIn}&checkOut=${checkOut}&token=${token}`;
 
   try {
     const response = await fetch(hotellookUrl);
