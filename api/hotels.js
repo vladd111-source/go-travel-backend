@@ -6,7 +6,12 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { city: originalCity = "Paris" } = req.query;
+  const { city: originalCity = "Paris", checkIn, checkOut } = req.query;
+  const token = "067df6a5f1de28c8a898bc83744dfdcd";
+
+  if (!checkIn || !checkOut) {
+    return res.status(400).json({ error: "❌ Параметры checkIn и checkOut обязательны" });
+  }
 
   async function translateCity(city) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
@@ -18,50 +23,57 @@ export default async function handler(req, res) {
       });
       const data = await response.json();
       return data?.translatedText || city;
-    } catch (err) {
-      console.warn("⚠️ Ошибка перевода города:", err);
+    } catch (e) {
+      console.warn("⚠️ Ошибка перевода:", e);
       return city;
     }
   }
 
   const city = await translateCity(originalCity);
-  const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const url = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
+  const baseParams = `location=${encodeURIComponent(city)}&checkIn=${checkIn}&checkOut=${checkOut}&adultsCount=1&currency=usd&limit=100&token=${token}`;
+  const startUrl = `https://engine.hotellook.com/api/v2/start.json?${baseParams}`;
+  const fallbackUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
 
-  try {
-    console.log("📡 Запрос к HotelLook:", url);
+  async function fetchHotels(url, expectResultsKey = false) {
+    console.log("🌐 Запрос:", url);
     const response = await fetch(url);
-    const contentType = response.headers.get("content-type");
+    const contentType = response.headers.get("content-type") || "";
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Ошибка ${response.status}: ${errorText}`);
-    }
-
-    if (!contentType?.includes("application/json")) {
-      throw new Error(`Неверный content-type: ${contentType}`);
-    }
+    if (!response.ok) throw new Error(`Ошибка ${response.status}: ${await response.text()}`);
+    if (!contentType.includes("application/json")) throw new Error(`Неверный Content-Type: ${contentType}`);
 
     const data = await response.json();
+    return expectResultsKey ? data?.results : data;
+  }
 
-    if (!Array.isArray(data)) {
-      console.error("❌ HotelLook API вернул не массив:", data);
-      return res.status(500).json({ error: `HotelLook API вернул не массив: ${JSON.stringify(data)}` });
+  try {
+    const hotels = await fetchHotels(startUrl, true);
+    if (!Array.isArray(hotels)) throw new Error("start.json не вернул массив results");
+
+    return res.status(200).json(hotels.map(formatHotel));
+  } catch (e) {
+    console.warn("🌀 Ошибка в start.json:", e.message);
+
+    try {
+      const fallback = await fetchHotels(fallbackUrl, false);
+      if (!Array.isArray(fallback)) throw new Error("cache.json не вернул массив");
+
+      return res.status(200).json(fallback.map(formatHotel));
+    } catch (finalErr) {
+      console.error("💥 fallback тоже упал:", finalErr.message);
+      return res.status(500).json({ error: "❌ Ошибка при получении отелей" });
     }
+  }
 
-    const hotels = data.map(h => ({
+  function formatHotel(h) {
+    return {
       id: h.hotelId || h.id || null,
       name: h.hotelName || h.name || "Без названия",
       city: h.city || city,
-      price: h.priceFrom || h.priceAvg || 0,
+      price: h.priceFrom || h.minimalPrice || h.priceAvg || 0,
       rating: h.rating || h.stars || 0,
       stars: h.stars || 0,
       location: h.location || h.geo || null,
-    }));
-
-    return res.status(200).json(hotels);
-  } catch (err) {
-    console.error("❌ Ошибка при получении отелей:", err.message || err);
-    return res.status(500).json({ error: "Ошибка при получении данных из HotelLook API" });
+    };
   }
 }
