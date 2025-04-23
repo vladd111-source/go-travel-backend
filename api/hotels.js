@@ -11,8 +11,11 @@ export default async function handler(req, res) {
 
   const originalCity = req.query.city || "Paris";
 
-  // 👉 Перевод города (например, "Лондон" → "London")
+  // 🔁 Перевод города (если не латиница)
   async function translateCityToEnglish(city) {
+    // Проверка: если город уже на латинице — не переводим
+    if (/^[a-zA-Z\s]+$/.test(city)) return city;
+
     try {
       const res = await fetch("https://libretranslate.de/translate", {
         method: "POST",
@@ -26,20 +29,21 @@ export default async function handler(req, res) {
       });
 
       const data = await res.json();
-      console.log("📘 Перевод города:", city, "→", data.translatedText);
-      return data.translatedText || city;
+      const translated = data?.translatedText || city;
+      console.log(`📘 Перевод города: "${city}" → "${translated}"`);
+      return translated;
     } catch (err) {
-      console.warn("⚠️ Ошибка перевода:", err);
+      console.warn("⚠️ Ошибка при переводе:", err);
       return city;
     }
   }
 
   const city = await translateCityToEnglish(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const url = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=30&token=${token}`;
+  const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=30&token=${token}`;
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(hotellookUrl);
     const data = await response.json();
 
     console.log("📦 Ответ от HotelLook API:", data);
@@ -56,9 +60,9 @@ export default async function handler(req, res) {
       rating: h.stars || h.rating || 0
     }));
 
-    res.status(200).json(hotels);
+    return res.status(200).json(hotels);
   } catch (err) {
     console.error("❌ Ошибка при запросе к HotelLook API:", err);
-    res.status(500).json({ error: "Ошибка получения данных из HotelLook" });
+    return res.status(500).json({ error: "Ошибка получения данных из HotelLook" });
   }
 }
