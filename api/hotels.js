@@ -27,31 +27,25 @@ export default async function handler(req, res) {
 
   const city = await translateCity(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
+  const fallbackUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
 
   try {
-    const response = await fetch(cacheUrl);
-    const contentType = response.headers.get("content-type");
-
-    if (!response.ok) {
-      throw new Error(`Ошибка запроса (${response.status}): ${await response.text()}`);
-    }
-
-    if (!contentType?.includes("application/json")) {
-      throw new Error(`Неверный content-type: ${contentType}`);
-    }
-
+    const response = await fetch(fallbackUrl);
     const data = await response.json();
-    if (!Array.isArray(data)) throw new Error("API вернул не массив");
+
+    if (!Array.isArray(data)) {
+      console.error("❌ HotelLook API вернул не массив:", data);
+      return res.status(500).json({ error: `HotelLook API вернул не массив: ${JSON.stringify(data)}` });
+    }
 
     const hotels = data.map(h => ({
-      id: h.hotelId || h.id || null,
-      name: h.hotelName || h.name || "Без названия",
+      id: h.id || null,
+      name: h.name || "Без названия",
       city: h.city || city,
-      price: h.priceFrom || h.priceAvg || h.minimalPrice || 0,
+      price: h.priceFrom || h.priceAvg || 0,
       rating: h.rating || h.stars || 0,
       stars: h.stars || 0,
-      location: h.location || h.geo || null,
+      location: h.location || null,
     }));
 
     return res.status(200).json(hotels);
