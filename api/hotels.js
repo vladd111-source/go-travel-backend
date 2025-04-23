@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+const hotelsHandler = async (req, res) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
@@ -62,4 +62,6 @@ export default async function handler(req, res) {
     console.error("❌ Ошибка при получении отелей:", err.message);
     return res.status(500).json({ error: `❌ Ошибка при получении отелей: ${err.message}` });
   }
-}
+};
+
+export default hotelsHandler;
