@@ -78,12 +78,12 @@ const hotelsHandler = async (req, res) => {
       };
     });
 
-       // 🔎 Фильтрация
+    // 🔎 Фильтрация
     const minR = parseFloat(minRating);
     const maxR = parseFloat(maxRating);
     const priceMin = parseFloat(priceFrom);
     const priceMax = parseFloat(priceTo);
-    const priceCap = 500; // 🔐 Жёсткий лимит по цене за ночь
+    const priceCap = 500;
 
     hotels = hotels.filter(h => {
       const passesRatingMin = isNaN(minR) ? true : h.rating >= minR;
@@ -91,17 +91,17 @@ const hotelsHandler = async (req, res) => {
       const passesPriceMin = isNaN(priceMin) ? true : h.price >= priceMin;
       const passesPriceMax = isNaN(priceMax) ? true : h.price <= priceMax;
       const underPriceCap = h.price <= priceCap;
-
       return passesRatingMin && passesRatingMax && passesPriceMin && passesPriceMax && underPriceCap;
     });
 
     // 📊 Сортировка
-    if (sort === "price_asc") {
-      hotels.sort((a, b) => a.price - b.price);
-    } else if (sort === "price_desc") {
+    if (sort === "price_desc") {
       hotels.sort((a, b) => b.price - a.price);
     } else if (sort === "rating_desc") {
       hotels.sort((a, b) => b.rating - a.rating);
+    } else {
+      // 🟢 По умолчанию: сортировать по возрастанию цены
+      hotels.sort((a, b) => a.price - b.price);
     }
 
     return res.status(200).json(hotels);
