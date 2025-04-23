@@ -44,7 +44,10 @@ export default async function handler(req, res) {
 
   const city = await translateCityToEnglish(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
+
+  // ✅ Новый endpoint и параметры
+  const hotellookUrl = `https://engine.hotellook.com/api/v2/start.json?location=${encodeURIComponent(city)}&checkIn=${checkIn}&checkOut=${checkOut}&currency=usd&language=en&limit=100&token=${token}`;
+
   try {
     const response = await fetch(hotellookUrl);
     const contentType = response.headers.get("content-type");
@@ -57,16 +60,16 @@ export default async function handler(req, res) {
     const data = await response.json();
     console.log("📦 Ответ от HotelLook API:", JSON.stringify(data, null, 2));
 
-    if (!Array.isArray(data)) {
+    if (!Array.isArray(data.hotels)) {
       const error = typeof data === 'object' ? JSON.stringify(data) : String(data);
       console.error("❌ HotelLook API вернул не массив:", error);
       return res.status(500).json({ error: `HotelLook API вернул не массив: ${error}` });
     }
 
-    const hotels = data.map(h => ({
+    const hotels = data.hotels.map(h => ({
       name: h.hotelName || h.name || "Без названия",
       city: h.city || city,
-      price: h.priceAvg || h.minimalPrice || 0,
+      price: h.priceFrom || h.priceAvg || 0,
       rating: h.stars || h.rating || 0
     }));
 
