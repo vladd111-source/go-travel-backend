@@ -51,16 +51,19 @@ const hotelsHandler = async (req, res) => {
       throw new Error("HotelLook API вернул не массив");
     }
 
-    const hotels = data.map(h => ({
-      id: h.hotelId || h.id || null,
-      name: h.hotelName || h.name || "Без названия",
-      city: h.city || city,
-      price: h.priceFrom || h.priceAvg || 0,
-      rating: h.rating || h.stars || 0,
-      stars: h.stars || 0,
-      location: h.location || h.geo || null,
-      image: h.hotelId ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto` : null
-    }));
+    const hotels = data.map(h => {
+      const id = h.hotelId || h.id || null;
+      return {
+        id,
+        name: h.hotelName || h.name || "Без названия",
+        city: h.city || city,
+        price: h.priceFrom || h.priceAvg || 0,
+        rating: h.rating || h.stars || 0,
+        stars: h.stars || 0,
+        location: h.location || h.geo || null,
+        image: id ? `https://photo.hotellook.com/image_v2/limit/${id}/800/520.auto` : null
+      };
+    });
 
     return res.status(200).json(hotels);
   } catch (err) {
