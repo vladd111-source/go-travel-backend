@@ -59,7 +59,6 @@ const hotelsHandler = async (req, res) => {
         city: h.city || city,
         price: h.priceFrom || h.priceAvg || 0,
         rating: h.rating || h.stars || 0,
-        stars: h.stars || 0,
         location: h.location || h.geo || null,
         image: id ? `https://photo.hotellook.com/image_v2/limit/${id}/800/520.auto` : null
       };
