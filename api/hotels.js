@@ -16,15 +16,15 @@ export default async function handler(req, res) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
 
     try {
-      const res = await fetch("https://libretranslate.de/translate", {
+      const response = await fetch("https://libretranslate.de/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ q: city, source: "auto", target: "en", format: "text" }),
       });
-      const data = await res.json();
+      const data = await response.json();
       return data?.translatedText || city;
-    } catch (e) {
-      console.warn("⚠️ Ошибка перевода:", e);
+    } catch (err) {
+      console.warn("⚠️ Ошибка перевода:", err);
       return city;
     }
   }
@@ -37,12 +37,20 @@ export default async function handler(req, res) {
   const fallbackUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
 
   async function fetchHotels(url, expectResultsKey = false) {
-    const res = await fetch(url);
-    const contentType = res.headers.get("content-type");
+    console.log("🌐 Запрос к:", url);
+
+    const response = await fetch(url);
+    const contentType = response.headers.get("content-type");
+
+    if (!response.ok) {
+      throw new Error(`❌ Ошибка запроса (${response.status}): ${await response.text()}`);
+    }
+
     if (!contentType?.includes("application/json")) {
       throw new Error(`Неверный content-type: ${contentType}`);
     }
-    const data = await res.json();
+
+    const data = await response.json();
     return expectResultsKey ? data.results : data;
   }
 
@@ -51,17 +59,17 @@ export default async function handler(req, res) {
 
     if (!Array.isArray(data)) throw new Error("start.json не вернул массив results");
 
-    return res.status(200).json(
-      data.map(h => ({
-        id: h.hotelId || h.id || null,
-        name: h.hotelName || h.name || "Без названия",
-        city: h.city || city,
-        price: h.priceFrom || h.priceAvg || h.minimalPrice || 0,
-        rating: h.rating || h.stars || 0,
-        stars: h.stars || 0,
-        location: h.location || h.geo || null,
-      }))
-    );
+    const hotels = data.map(h => ({
+      id: h.hotelId || h.id || null,
+      name: h.hotelName || h.name || "Без названия",
+      city: h.city || city,
+      price: h.priceFrom || h.priceAvg || h.minimalPrice || 0,
+      rating: h.rating || h.stars || 0,
+      stars: h.stars || 0,
+      location: h.location || h.geo || null,
+    }));
+
+    return res.status(200).json(hotels);
   } catch (err) {
     console.warn("🔁 Ошибка с start.json, fallback на cache.json:", err.message);
 
@@ -70,17 +78,17 @@ export default async function handler(req, res) {
 
       if (!Array.isArray(fallbackData)) throw new Error("fallback тоже не вернул массив");
 
-      return res.status(200).json(
-        fallbackData.map(h => ({
-          id: h.hotelId || h.id || null,
-          name: h.hotelName || h.name || "Без названия",
-          city: h.city || city,
-          price: h.priceFrom || h.priceAvg || h.minimalPrice || 0,
-          rating: h.rating || h.stars || 0,
-          stars: h.stars || 0,
-          location: h.location || h.geo || null,
-        }))
-      );
+      const hotels = fallbackData.map(h => ({
+        id: h.hotelId || h.id || null,
+        name: h.hotelName || h.name || "Без названия",
+        city: h.city || city,
+        price: h.priceFrom || h.priceAvg || h.minimalPrice || 0,
+        rating: h.rating || h.stars || 0,
+        stars: h.stars || 0,
+        location: h.location || h.geo || null,
+      }));
+
+      return res.status(200).json(hotels);
     } catch (finalErr) {
       console.error("❌ Ошибка при обоих запросах:", finalErr);
       return res.status(500).json({ error: "Ошибка при получении данных из HotelLook API" });
