@@ -58,19 +58,21 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    if (!Array.isArray(data.results)) {
-      console.error("❌ Ожидался массив отелей в 'results':", data);
-      return res.status(500).json({ error: `HotelLook API вернул не массив results: ${JSON.stringify(data)}` });
+    const hotelArray = Array.isArray(data) ? data : data?.results;
+
+    if (!Array.isArray(hotelArray)) {
+      console.error("❌ Ожидался массив отелей, получено:", data);
+      return res.status(500).json({ error: `HotelLook API вернул не массив: ${JSON.stringify(data)}` });
     }
 
-    const hotels = data.results.map(h => ({
+    const hotels = hotelArray.map(h => ({
       id: h.hotelId || h.id || null,
       name: h.hotelName || h.name || "Без названия",
       city: h.city || city,
       price: h.priceFrom || h.priceAvg || h.minimalPrice || 0,
       rating: h.rating || h.stars || 0,
       stars: h.stars || 0,
-      location: h.location || h.geo || null,
+      location: h.location || h.geo || null
     }));
 
     return res.status(200).json(hotels);
