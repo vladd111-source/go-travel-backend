@@ -78,18 +78,21 @@ const hotelsHandler = async (req, res) => {
       };
     });
 
-    // 🔎 Фильтрация
+       // 🔎 Фильтрация
     const minR = parseFloat(minRating);
     const maxR = parseFloat(maxRating);
     const priceMin = parseFloat(priceFrom);
     const priceMax = parseFloat(priceTo);
+    const priceCap = 500; // 🔐 Жёсткий лимит по цене за ночь
 
     hotels = hotels.filter(h => {
       const passesRatingMin = isNaN(minR) ? true : h.rating >= minR;
       const passesRatingMax = isNaN(maxR) ? true : h.rating <= maxR;
       const passesPriceMin = isNaN(priceMin) ? true : h.price >= priceMin;
       const passesPriceMax = isNaN(priceMax) ? true : h.price <= priceMax;
-      return passesRatingMin && passesRatingMax && passesPriceMin && passesPriceMax;
+      const underPriceCap = h.price <= priceCap;
+
+      return passesRatingMin && passesRatingMax && passesPriceMin && passesPriceMax && underPriceCap;
     });
 
     // 📊 Сортировка
