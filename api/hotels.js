@@ -5,11 +5,16 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Authorization, Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   const originalCity = req.query.city || "Paris";
+  const checkIn = req.query.checkIn;
+  const checkOut = req.query.checkOut;
+
+  if (!checkIn || !checkOut) {
+    return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
+  }
 
   // 🔁 Перевод города (если не латиница)
   async function translateCityToEnglish(city) {
@@ -39,7 +44,7 @@ export default async function handler(req, res) {
 
   const city = await translateCityToEnglish(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=30&token=${token}`;
+  const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=30&checkIn=${checkIn}&checkOut=${checkOut}&token=${token}`;
 
   try {
     const response = await fetch(hotellookUrl);
