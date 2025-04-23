@@ -9,12 +9,6 @@ export default async function handler(req, res) {
   }
 
   const originalCity = req.query.city || "Paris";
-  const checkIn = req.query.checkIn;
-  const checkOut = req.query.checkOut;
-
-  if (!checkIn || !checkOut) {
-    return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
-  }
 
   // 🔁 Перевод города (если не латиница)
   async function translateCityToEnglish(city) {
@@ -45,8 +39,8 @@ export default async function handler(req, res) {
   const city = await translateCityToEnglish(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
-  // ✅ Новый endpoint и параметры
- const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&checkIn=${checkIn}&checkOut=${checkOut}&token=${token}`;
+  // ✅ Используем cache.json без дат
+  const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
 
   try {
     const response = await fetch(hotellookUrl);
@@ -60,13 +54,13 @@ export default async function handler(req, res) {
     const data = await response.json();
     console.log("📦 Ответ от HotelLook API:", JSON.stringify(data, null, 2));
 
-    if (!Array.isArray(data.hotels)) {
+    if (!Array.isArray(data)) {
       const error = typeof data === 'object' ? JSON.stringify(data) : String(data);
       console.error("❌ HotelLook API вернул не массив:", error);
       return res.status(500).json({ error: `HotelLook API вернул не массив: ${error}` });
     }
 
-    const hotels = data.hotels.map(h => ({
+    const hotels = data.map(h => ({
       name: h.hotelName || h.name || "Без названия",
       city: h.city || city,
       price: h.priceFrom || h.priceAvg || 0,
