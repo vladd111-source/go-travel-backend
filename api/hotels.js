@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
   const originalCity = req.query.city || "Paris";
 
-  // 🔁 Перевод города с русского на английский
+  // 👉 Перевод города (например, "Лондон" → "London")
   async function translateCityToEnglish(city) {
     try {
       const res = await fetch("https://libretranslate.de/translate", {
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           q: city,
-          source: "ru",
+          source: "auto",
           target: "en",
           format: "text"
         })
@@ -29,8 +29,8 @@ export default async function handler(req, res) {
       console.log("📘 Перевод города:", city, "→", data.translatedText);
       return data.translatedText || city;
     } catch (err) {
-      console.warn("⚠️ Ошибка перевода города:", err);
-      return city; // fallback
+      console.warn("⚠️ Ошибка перевода:", err);
+      return city;
     }
   }
 
@@ -45,9 +45,8 @@ export default async function handler(req, res) {
     console.log("📦 Ответ от HotelLook API:", data);
 
     if (!Array.isArray(data)) {
-      const errorMessage = data.error || "HotelLook API вернул не массив";
-      console.error("❌ Ошибка от API:", errorMessage);
-      return res.status(500).json({ error: errorMessage });
+      console.error("❌ HotelLook API вернул не массив:", data);
+      return res.status(500).json({ error: "HotelLook API вернул не массив" });
     }
 
     const hotels = data.map(h => ({
