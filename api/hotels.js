@@ -6,7 +6,7 @@ const hotelsHandler = async (req, res) => {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { city: originalCity = "Paris", checkIn, checkOut } = req.query;
+  const { city: originalCity = "Paris", checkIn, checkOut, minRating } = req.query;
 
   if (!checkIn || !checkOut) {
     return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
@@ -51,7 +51,7 @@ const hotelsHandler = async (req, res) => {
       throw new Error("HotelLook API вернул не массив");
     }
 
-    const hotels = data.map(h => {
+    let hotels = data.map(h => {
       const id = h.hotelId || h.id || null;
       return {
         id,
@@ -64,6 +64,14 @@ const hotelsHandler = async (req, res) => {
         image: id ? `https://photo.hotellook.com/image_v2/limit/${id}/800/520.auto` : null
       };
     });
+
+    // 🔎 Фильтрация по рейтингу (если задан minRating)
+    if (minRating) {
+      const min = parseFloat(minRating);
+      if (!isNaN(min)) {
+        hotels = hotels.filter(h => h.rating >= min);
+      }
+    }
 
     return res.status(200).json(hotels);
   } catch (err) {
