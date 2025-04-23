@@ -1,3 +1,7 @@
+export default async function handler(req, res) {
+  const hotels = [{ name: "Demo Hotel", price: 100 }];
+  res.status(200).json(hotels);
+}
 const hotelsHandler = async (req, res) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
