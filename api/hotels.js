@@ -52,13 +52,14 @@ const hotelsHandler = async (req, res) => {
     }
 
     const hotels = data.map(h => ({
-      id: h.id || null,
-      name: h.name || "Без названия",
+      id: h.hotelId || h.id || null,
+      name: h.hotelName || h.name || "Без названия",
       city: h.city || city,
       price: h.priceFrom || h.priceAvg || 0,
       rating: h.rating || h.stars || 0,
       stars: h.stars || 0,
-      location: h.location || null,
+      location: h.location || h.geo || null,
+      image: h.hotelId ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto` : null
     }));
 
     return res.status(200).json(hotels);
