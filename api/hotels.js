@@ -6,7 +6,16 @@ const hotelsHandler = async (req, res) => {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { city: originalCity = "Paris", checkIn, checkOut, minRating, maxRating, priceFrom, priceTo } = req.query;
+  const {
+    city: originalCity = "Paris",
+    checkIn,
+    checkOut,
+    minRating,
+    maxRating,
+    priceFrom,
+    priceTo,
+    sort
+  } = req.query;
 
   if (!checkIn || !checkOut) {
     return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
@@ -77,6 +86,15 @@ const hotelsHandler = async (req, res) => {
       const passesPriceMax = isNaN(priceMax) ? true : h.price <= priceMax;
       return passesRatingMin && passesRatingMax && passesPriceMin && passesPriceMax;
     });
+
+    // 📊 Сортировка
+    if (sort === "price_asc") {
+      hotels.sort((a, b) => a.price - b.price);
+    } else if (sort === "price_desc") {
+      hotels.sort((a, b) => b.price - a.price);
+    } else if (sort === "rating_desc") {
+      hotels.sort((a, b) => b.rating - a.rating);
+    }
 
     return res.status(200).json(hotels);
   } catch (err) {
