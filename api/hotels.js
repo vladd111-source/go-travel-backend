@@ -1,21 +1,27 @@
 export default async function handler(req, res) {
-  // 🌐 CORS
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
-  res.setHeader("Access-Control-Allow-Headers", "X-CSRF-Token, X-Requested-With, Accept, Authorization, Content-Type");
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', 'https://go-travel-frontend.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Authorization, Content-Type');
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-  // 📍 Город из query
   const originalCity = req.query.city || "Paris";
+  const checkIn = req.query.checkIn;
+  const checkOut = req.query.checkOut;
 
-  // 🔄 Перевод города, если нужно
-  async function translateCity(city) {
+  if (!checkIn || !checkOut) {
+    return res.status(400).json({ error: "❌ Не хватает параметров checkIn и checkOut" });
+  }
+
+  // Перевод города
+  async function translateCityToEnglish(city) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
 
     try {
-      const translateRes = await fetch("https://libretranslate.de/translate", {
+      const res = await fetch("https://libretranslate.de/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -26,30 +32,32 @@ export default async function handler(req, res) {
         })
       });
 
-      const result = await translateRes.json();
-      const translated = result?.translatedText || city;
-      console.log(`📘 Перевод: "${city}" → "${translated}"`);
+      const data = await res.json();
+      const translated = data?.translatedText || city;
+      console.log(`📘 Перевод города: "${city}" → "${translated}"`);
       return translated;
     } catch (err) {
-      console.warn("⚠️ Ошибка перевода:", err);
+      console.warn("⚠️ Ошибка перевода города:", err);
       return city;
     }
   }
 
-  const city = await translateCity(originalCity);
+  const city = await translateCityToEnglish(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const apiUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
+
+  // 💡 Используем HotelLook start.json для запросов с датами
+  const hotellookUrl = `https://engine.hotellook.com/api/v2/start.json?location=${encodeURIComponent(city)}&checkIn=${checkIn}&checkOut=${checkOut}&currency=usd&limit=100&token=${token}`;
 
   try {
-    const apiRes = await fetch(apiUrl);
-    const contentType = apiRes.headers.get("content-type") || "";
+    const response = await fetch(hotellookUrl);
+    const contentType = response.headers.get("content-type");
 
-    if (!contentType.includes("application/json")) {
-      console.error("❌ Неверный content-type от API:", contentType);
+    if (!contentType?.includes("application/json")) {
+      console.error("❌ HotelLook вернул неправильный content-type:", contentType);
       return res.status(500).json({ error: `HotelLook вернул неправильный content-type: ${contentType}` });
     }
 
-    const data = await apiRes.json();
+    const data = await response.json();
 
     if (!Array.isArray(data)) {
       console.error("❌ HotelLook API вернул не массив:", data);
@@ -65,7 +73,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json(hotels);
   } catch (err) {
-    console.error("❌ Ошибка запроса:", err);
-    return res.status(500).json({ error: "Ошибка при запросе к HotelLook API" });
+    console.error("❌ Ошибка при запросе к HotelLook API:", err);
+    return res.status(500).json({ error: "Ошибка получения данных из HotelLook" });
   }
 }
