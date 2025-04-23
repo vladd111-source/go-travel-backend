@@ -10,7 +10,7 @@ export default async function handler(req, res) {
 
   const originalCity = req.query.city || "Paris";
 
-  // 🔁 Перевод города (если не латиница)
+  // Перевод города
   async function translateCityToEnglish(city) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
 
@@ -38,8 +38,6 @@ export default async function handler(req, res) {
 
   const city = await translateCityToEnglish(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
-
-  // ✅ Используем cache.json без дат
   const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
 
   try {
@@ -52,7 +50,6 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    console.log("📦 Ответ от HotelLook API:", JSON.stringify(data, null, 2));
 
     if (!Array.isArray(data)) {
       const error = typeof data === 'object' ? JSON.stringify(data) : String(data);
