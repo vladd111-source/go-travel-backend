@@ -37,8 +37,8 @@ export default async function handler(req, res) {
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
 
   // Используем надёжный endpoint без дат (cache.json)
-  const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=50&token=${token}`;
-
+ const hotellookUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
+  
   try {
     const response = await fetch(hotellookUrl);
     const contentType = response.headers.get("content-type");
