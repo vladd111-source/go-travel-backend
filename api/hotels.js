@@ -34,6 +34,8 @@ export default async function handler(req, res) {
 
   const baseParams = `location=${encodeURIComponent(city)}&checkIn=${checkIn}&checkOut=${checkOut}&adultsCount=1&currency=usd&limit=100&token=${token}`;
   const startUrl = `https://engine.hotellook.com/api/v2/start.json?${baseParams}`;
+
+  // ❗ fallback без дат
   const fallbackUrl = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
 
   async function fetchHotels(url, expectResultsKey = false) {
@@ -55,7 +57,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    let data = await fetchHotels(startUrl, true);
+    const data = await fetchHotels(startUrl, true);
 
     if (!Array.isArray(data)) throw new Error("start.json не вернул массив results");
 
@@ -74,7 +76,7 @@ export default async function handler(req, res) {
     console.warn("🔁 Ошибка с start.json, fallback на cache.json:", err.message);
 
     try {
-      const fallbackData = await fetchHotels(fallbackUrl);
+      const fallbackData = await fetchHotels(fallbackUrl); // ❗ без checkIn/checkOut
 
       if (!Array.isArray(fallbackData)) throw new Error("fallback тоже не вернул массив");
 
