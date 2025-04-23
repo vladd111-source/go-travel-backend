@@ -6,7 +6,7 @@ const hotelsHandler = async (req, res) => {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { city: originalCity = "Paris", checkIn, checkOut, minRating } = req.query;
+  const { city: originalCity = "Paris", checkIn, checkOut, minRating, maxRating, priceFrom, priceTo } = req.query;
 
   if (!checkIn || !checkOut) {
     return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
@@ -65,13 +65,19 @@ const hotelsHandler = async (req, res) => {
       };
     });
 
-    // 🔎 Фильтрация по рейтингу (если задан minRating)
-    if (minRating) {
-      const min = parseFloat(minRating);
-      if (!isNaN(min)) {
-        hotels = hotels.filter(h => h.rating >= min);
-      }
-    }
+    // 🔎 Фильтрация
+    const minR = parseFloat(minRating);
+    const maxR = parseFloat(maxRating);
+    const priceMin = parseFloat(priceFrom);
+    const priceMax = parseFloat(priceTo);
+
+    hotels = hotels.filter(h => {
+      const passesRatingMin = isNaN(minR) ? true : h.rating >= minR;
+      const passesRatingMax = isNaN(maxR) ? true : h.rating <= maxR;
+      const passesPriceMin = isNaN(priceMin) ? true : h.price >= priceMin;
+      const passesPriceMax = isNaN(priceMax) ? true : h.price <= priceMax;
+      return passesRatingMin && passesRatingMax && passesPriceMin && passesPriceMax;
+    });
 
     return res.status(200).json(hotels);
   } catch (err) {
