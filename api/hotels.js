@@ -1,4 +1,3 @@
-
 const hotelsHandler = async (req, res) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
@@ -44,7 +43,6 @@ const hotelsHandler = async (req, res) => {
 
   try {
     const response = await fetch(url);
-
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`❌ Ошибка запроса (${response.status}): ${text}`);
@@ -56,18 +54,24 @@ const hotelsHandler = async (req, res) => {
     }
 
     const data = await response.json();
-
     if (!Array.isArray(data)) {
       throw new Error("HotelLook API вернул не массив");
     }
 
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const nights = Math.max(1, (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+
     let hotels = data.map(h => {
       const id = h.hotelId || h.id || null;
+      const totalPrice = h.priceFrom || h.priceAvg || 0;
+      const pricePerNight = totalPrice ? Math.round(totalPrice / nights) : 0;
+
       return {
         id,
         name: h.hotelName || h.name || "Без названия",
         city: h.city || city,
-        price: h.priceFrom || h.priceAvg || 0,
+        price: pricePerNight,
         rating: h.rating || h.stars || 0,
         location: h.location || h.geo || null,
         image: id ? `https://photo.hotellook.com/image_v2/limit/${id}/800/520.auto` : null
