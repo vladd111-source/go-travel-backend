@@ -6,7 +6,11 @@ const hotelsHandler = async (req, res) => {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { city: originalCity = "Paris" } = req.query;
+  const { city: originalCity = "Paris", checkIn, checkOut } = req.query;
+
+  if (!checkIn || !checkOut) {
+    return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
+  }
 
   async function translateCity(city) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
@@ -26,7 +30,7 @@ const hotelsHandler = async (req, res) => {
 
   const city = await translateCity(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const url = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&currency=usd&limit=100&token=${token}`;
+  const url = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&checkIn=${checkIn}&checkOut=${checkOut}&currency=usd&limit=100&token=${token}`;
 
   try {
     const response = await fetch(url);
