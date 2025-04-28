@@ -6,16 +6,7 @@ const hotelsHandler = async (req, res) => {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const {
-    city: originalCity = "Paris",
-    checkIn,
-    checkOut,
-    minRating,
-    maxRating,
-    priceFrom,
-    priceTo,
-    sort
-  } = req.query;
+  const { city: originalCity = "Paris", checkIn, checkOut } = req.query;
 
   if (!checkIn || !checkOut) {
     return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
@@ -37,12 +28,21 @@ const hotelsHandler = async (req, res) => {
     }
   }
 
-  const city = await translateCity(originalCity);
   const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const url = `https://engine.hotellook.com/api/v2/cache.json?location=${encodeURIComponent(city)}&checkIn=${checkIn}&checkOut=${checkOut}&currency=usd&limit=100&token=${token}`;
+  const city = await translateCity(originalCity);
 
   try {
-    const response = await fetch(url);
+    // 🔎 Получаем locationId
+    const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}`;
+    const lookupRes = await fetch(lookupUrl);
+    if (!lookupRes.ok) throw new Error(`Ошибка lookup: ${lookupRes.status}`);
+    const lookupData = await lookupRes.json();
+    const locationId = lookupData?.results?.locations?.[0]?.id;
+    if (!locationId) throw new Error('Локация не найдена');
+
+    // ✈️ Теперь ищем отели по locationId
+    const hotelsUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&token=${token}`;
+    const response = await fetch(hotelsUrl);
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`❌ Ошибка запроса (${response.status}): ${text}`);
@@ -62,47 +62,15 @@ const hotelsHandler = async (req, res) => {
     const checkOutDate = new Date(checkOut);
     const nights = Math.max(1, (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
 
-    let hotels = data.map(h => {
-      const id = h.hotelId || h.id || null;
-      const totalPrice = h.priceFrom || h.priceAvg || 0;
-      const pricePerNight = totalPrice ? Math.round(totalPrice / nights) : 0;
-
-      return {
-        id,
-        name: h.hotelName || h.name || "Без названия",
-        city: h.city || city,
-        price: pricePerNight,
-        rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        location: h.location || h.geo || null,
-        image: id ? `https://photo.hotellook.com/image_v2/limit/${id}/800/520.auto` : null
-      };
-    });
-
-    // 🔎 Фильтрация
-    const minR = parseFloat(minRating);
-    const maxR = parseFloat(maxRating);
-    const priceMin = parseFloat(priceFrom);
-    const priceMax = parseFloat(priceTo);
-    const priceCap = 500;
-
-    hotels = hotels.filter(h => {
-      const passesRatingMin = isNaN(minR) ? true : h.rating >= minR;
-      const passesRatingMax = isNaN(maxR) ? true : h.rating <= maxR;
-      const passesPriceMin = isNaN(priceMin) ? true : h.price >= priceMin;
-      const passesPriceMax = isNaN(priceMax) ? true : h.price <= priceMax;
-      const underPriceCap = h.price <= priceCap;
-      return passesRatingMin && passesRatingMax && passesPriceMin && passesPriceMax && underPriceCap;
-    });
-
-    // 📊 Сортировка
-    if (sort === "price_desc") {
-      hotels.sort((a, b) => b.price - a.price);
-    } else if (sort === "rating_desc") {
-      hotels.sort((a, b) => b.rating - a.rating);
-    } else {
-      // 🟢 По умолчанию: сортировать по возрастанию цены
-      hotels.sort((a, b) => a.price - b.price);
-    }
+    const hotels = data.map(h => ({
+      id: h.hotelId || h.id || null,
+      name: h.hotelName || h.name || "Без названия",
+      city: h.city || city,
+      price: h.priceFrom ? Math.round(h.priceFrom / nights) : 0,
+      rating: h.rating || (h.stars ? h.stars * 2 : 0),
+      location: h.location || h.geo || null,
+      image: h.hotelId ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto` : null,
+    }));
 
     return res.status(200).json(hotels);
   } catch (err) {
