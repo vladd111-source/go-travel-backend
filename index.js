@@ -1,10 +1,12 @@
-// index.js
 import express from "express";
 import hotelsHandler from "./api/hotels.js";
 import flightsHandler from "./api/flights.js";
+import proxySearchHandler from "./api/proxy-search.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+app.use(express.json()); // не забудь
 
 // CORS
 app.use((req, res, next) => {
@@ -19,6 +21,7 @@ app.use((req, res, next) => {
 // Роуты
 app.get("/api/hotels", hotelsHandler);
 app.get("/api/flights", flightsHandler);
+app.post("/api/proxy-search", proxySearchHandler);
 
 app.listen(PORT, () => {
   console.log(`✅ Backend работает на http://localhost:${PORT}`);
