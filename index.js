@@ -2,13 +2,14 @@ import express from "express";
 import hotelsHandler from "./api/hotels.js";
 import flightsHandler from "./api/flights.js";
 import proxySearchHandler from "./api/proxy-search.js";
+import proxyResultsHandler from "./api/proxy-results.js"; // 🔥 добавлено
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json()); // не забудь
+app.use(express.json()); // обязательно для POST
 
-// CORS
+// ✅ CORS middleware
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -18,10 +19,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Роуты
+// ✅ Роуты
 app.get("/api/hotels", hotelsHandler);
 app.get("/api/flights", flightsHandler);
 app.post("/api/proxy-search", proxySearchHandler);
+app.get("/api/proxy-results", proxyResultsHandler); // 🔥 добавлено
 
 app.listen(PORT, () => {
   console.log(`✅ Backend работает на http://localhost:${PORT}`);
