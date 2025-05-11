@@ -36,45 +36,42 @@ const hotelsHandler = async (req, res) => {
   try {
     const city = await translateCity(originalCity);
 
-    // Шаг 1: Старт поиска
-    const searchStartRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: city,
-        checkIn,
-        checkOut,
-        adultsCount: 2,
-        language: "ru",
-        currency: "usd",
-        token,
-        marker
-      })
-    });
+    const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
+    const lookupRes = await fetch(lookupUrl);
 
-    const startData = await searchStartRes.json();
-    const searchId = startData.searchId;
-    if (!searchId) throw new Error("⛔ Не получен searchId");
+    if (!lookupRes.ok) throw new Error(`❌ Lookup API ошибка: ${lookupRes.status}`);
+    const lookupData = await lookupRes.json();
+    const locationId = lookupData?.results?.locations?.[0]?.id;
 
-    // Подождать 2 секунды
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!locationId) throw new Error("Локация не найдена");
 
-    // Шаг 2: Получение результатов
-    const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
-    const resultsData = await resultsRes.json();
+    const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
+    const cacheRes = await fetch(cacheUrl);
+
+    const rawText = await cacheRes.text(); // ← читаем текст
+    console.log("📦 Ответ от cache API (text):", rawText);
+
+    let data;
+    try {
+      data = JSON.parse(rawText); // ← вручную парсим
+    } catch (err) {
+      throw new Error("❌ Ответ от cache API не является валидным JSON");
+    }
+
+    if (!Array.isArray(data)) throw new Error("Ответ от API не массив");
 
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     const nights = Math.max(1, (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
 
-    const hotels = (resultsData.results || [])
-      .filter(h => h.available && h.priceAvg > 0)
+    const hotels = data
+      .filter(h => h.priceFrom && h.priceFrom > 0)
       .map(h => ({
         id: h.hotelId || h.id || null,
         name: h.hotelName || h.name || "Без названия",
-        city: h.location?.name || city,
-        price: Math.floor(h.priceAvg / nights),
-        fullPrice: h.priceAvg,
+        city: h.city || city,
+        price: Math.floor(h.priceFrom / nights),
+        fullPrice: h.priceFrom,
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
         image: h.hotelId
           ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto`
@@ -85,7 +82,7 @@ const hotelsHandler = async (req, res) => {
   } catch (err) {
     console.error("❌ Полная ошибка:", err);
     return res.status(500).json({
-      error: `❌ Ошибка при получении отелей: ${err.message || "Unknown error"}`
+      error: `❌ Ошибка при получении отелей: ${err.message || "Unknown error"}`,
     });
   }
 };
