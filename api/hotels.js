@@ -41,20 +41,32 @@ const hotelsHandler = async (req, res) => {
     console.log("🔍 lookup URL:", lookupUrl);
     const lookupRes = await fetch(lookupUrl);
     const lookupText = await lookupRes.text();
-    const lookupData = JSON.parse(lookupText);
-    const locationId = lookupData?.results?.locations?.[0]?.id;
 
+    if (!lookupRes.ok) {
+      console.error("❌ Ошибка от lookup API:", lookupText);
+      throw new Error(`Lookup API ${lookupRes.status}: ${lookupText}`);
+    }
+
+    let lookupData;
+    try {
+      lookupData = JSON.parse(lookupText);
+    } catch {
+      throw new Error("❌ Невалидный JSON от lookup API");
+    }
+
+    const locationId = lookupData?.results?.locations?.[0]?.id;
     if (!locationId) {
-      console.warn("⚠️ Локация не найдена для города:", city);
-      return res.status(404).json({ error: `Локация не найдена для города: ${city}` });
+      console.warn("⚠️ Локация не найдена:", city);
+      return res.status(404).json({ error: `Локация не найдена: ${city}` });
     }
 
     // 📦 cache API
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
+    console.log("📦 cache URL:", cacheUrl);
     const cacheRes = await fetch(cacheUrl);
-    let rawText = await cacheRes.text();
-    let data;
+    const rawText = await cacheRes.text();
 
+    let data;
     try {
       data = JSON.parse(rawText);
     } catch {
@@ -64,9 +76,9 @@ const hotelsHandler = async (req, res) => {
 
     let hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
 
-    // 🔁 fallback через search API, если нет результатов
+    // 🔁 fallback: search API
     if (!hotels.length) {
-      console.log("⚠️ Пусто в cache API — fallback на search API");
+      console.log("🔁 Fallback на search API");
 
       const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
         method: "POST",
@@ -80,17 +92,18 @@ const hotelsHandler = async (req, res) => {
           currency: "usd",
           token,
           marker
-        })
+        }),
       });
 
-      const { searchId } = await startRes.json();
+      const startJson = await startRes.json();
+      const searchId = startJson?.searchId;
       if (!searchId) throw new Error("❌ searchId не получен");
 
       await new Promise(r => setTimeout(r, 2000));
 
       const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
-      const resultsData = await resultsRes.json();
-      hotels = (resultsData.results || []).filter(h => h.available && h.priceFrom > 0);
+      const resultsJson = await resultsRes.json();
+      hotels = (resultsJson.results || []).filter(h => h.available && h.priceFrom > 0);
     }
 
     const checkInDate = new Date(checkIn);
