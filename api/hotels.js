@@ -36,27 +36,35 @@ const hotelsHandler = async (req, res) => {
   try {
     const city = await translateCity(originalCity);
 
-    // 🔍 Получаем locationId
-    const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
-    // 👇 Добавь прямо сюда:
+   // 🔍 Получаем locationId
+const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
 console.log("🔍 lookup URL:", lookupUrl);
-    const lookupRes = await fetch(lookupUrl);
-    const lookupText = await lookupRes.text();
-    console.log("📌 Ответ от lookup API (text):", lookupText);
 
-    let lookupData;
-    try {
-      lookupData = JSON.parse(lookupText);
-    } catch (err) {
-      throw new Error("❌ Невалидный JSON от lookup API");
-    }
+const lookupRes = await fetch(lookupUrl);
 
-    const locationId = lookupData?.results?.locations?.[0]?.id;
-    if (!locationId) {
-      console.warn("⚠️ Локация не найдена для города:", city);
-      return res.status(404).json({ error: `Локация не найдена для города: ${city}` });
-    }
+// 💥 Проверка, не вернулся ли 4xx/5xx ответ
+if (!lookupRes.ok) {
+  const errorText = await lookupRes.text();
+  console.error("❌ Ошибка от lookup API:", errorText);
+  throw new Error(`Lookup API вернул ${lookupRes.status}: ${errorText}`);
+}
 
+// 🧪 Пытаемся парсить JSON
+let lookupData;
+try {
+  const lookupText = await lookupRes.text();
+  console.log("📌 Ответ от lookup API (text):", lookupText);
+  lookupData = JSON.parse(lookupText);
+} catch (err) {
+  throw new Error("❌ Невалидный JSON от lookup API");
+}
+
+// 🧭 Получаем locationId
+const locationId = lookupData?.results?.locations?.[0]?.id;
+if (!locationId) {
+  console.warn("⚠️ Локация не найдена для города:", city);
+  return res.status(404).json({ error: `Локация не найдена для города: ${city}` });
+}
     // 📦 Получаем отели
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
