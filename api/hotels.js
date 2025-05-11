@@ -36,29 +36,42 @@ const hotelsHandler = async (req, res) => {
   try {
     const city = await translateCity(originalCity);
 
+    // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
+    const lookupText = await lookupRes.text();
+    console.log("📌 Ответ от lookup API (text):", lookupText);
 
-    if (!lookupRes.ok) throw new Error(`❌ Lookup API ошибка: ${lookupRes.status}`);
-    const lookupData = await lookupRes.json();
+    let lookupData;
+    try {
+      lookupData = JSON.parse(lookupText);
+    } catch (err) {
+      throw new Error("❌ Невалидный JSON от lookup API");
+    }
+
     const locationId = lookupData?.results?.locations?.[0]?.id;
+    if (!locationId) {
+      console.warn("⚠️ Локация не найдена для города:", city);
+      return res.status(404).json({ error: `Локация не найдена для города: ${city}` });
+    }
 
-    if (!locationId) throw new Error("Локация не найдена");
-
+    // 📦 Получаем отели
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
-
-    const rawText = await cacheRes.text(); // ← читаем текст
+    const rawText = await cacheRes.text();
     console.log("📦 Ответ от cache API (text):", rawText);
 
     let data;
     try {
-      data = JSON.parse(rawText); // ← вручную парсим
+      data = JSON.parse(rawText);
     } catch (err) {
       throw new Error("❌ Ответ от cache API не является валидным JSON");
     }
 
-    if (!Array.isArray(data)) throw new Error("Ответ от API не массив");
+    if (!Array.isArray(data)) {
+      console.warn("⚠️ Ответ не является массивом:", data);
+      return res.status(200).json([]);
+    }
 
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
