@@ -72,10 +72,12 @@ const hotelsHandler = async (req, res) => {
       }));
 
     return res.status(200).json(hotels);
-  } catch (err) {
-    console.error("❌ Ошибка при получении отелей:", err.message);
-    return res.status(500).json({ error: `❌ Ошибка при получении отелей: ${err.message}` });
-  }
+ } catch (err) {
+  console.error("❌ Полная ошибка:", err);
+  return res.status(500).json({
+    error: `❌ Ошибка при получении отелей: ${err.message || "Unknown error"}`
+  });
+}
 };
 
 export default hotelsHandler;
