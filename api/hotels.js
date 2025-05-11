@@ -42,9 +42,9 @@ const hotelsHandler = async (req, res) => {
     const lookupRes = await fetch(lookupUrl);
     const lookupText = await lookupRes.text();
 
-    if (!lookupRes.ok) {
+    if (!lookupRes.ok || lookupText.includes("Unknown api method")) {
       console.error("❌ Ошибка от lookup API:", lookupText);
-      throw new Error(`Lookup API ${lookupRes.status}: ${lookupText}`);
+      throw new Error(`Lookup API вернул ошибку: ${lookupText}`);
     }
 
     let lookupData;
