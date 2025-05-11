@@ -46,13 +46,13 @@ const hotelsHandler = async (req, res) => {
       throw new Error("Локация не найдена");
     }
 
-    // 📦 Получаем список отелей по locationId
+    // 📦 Получаем список отелей по cache API
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const data = await cacheRes.json();
 
     if (!Array.isArray(data)) {
-      throw new Error("Результаты не в массиве");
+      throw new Error("HotelLook API вернул не массив");
     }
 
     const checkInDate = new Date(checkIn);
@@ -60,24 +60,26 @@ const hotelsHandler = async (req, res) => {
     const nights = Math.max(1, (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
 
     const hotels = data
-      .filter(h => h.priceFrom > 0)
+      .filter(h => h.priceFrom && h.priceFrom > 0)
       .map(h => ({
         id: h.hotelId || h.id || null,
         name: h.hotelName || h.name || "Без названия",
         city: h.city || city,
-        price: h.priceFrom ? Math.floor(h.priceFrom / nights) : 0,
-        fullPrice: h.priceFrom || 0,
+        price: Math.floor(h.priceFrom / nights),
+        fullPrice: h.priceFrom,
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        image: h.hotelId ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto` : null,
+        image: h.hotelId
+          ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto`
+          : null,
       }));
 
     return res.status(200).json(hotels);
- } catch (err) {
-  console.error("❌ Полная ошибка:", err);
-  return res.status(500).json({
-    error: `❌ Ошибка при получении отелей: ${err.message || "Unknown error"}`
-  });
-}
+  } catch (err) {
+    console.error("❌ Полная ошибка:", err);
+    return res.status(500).json({
+      error: `❌ Ошибка при получении отелей: ${err.message || "Unknown error"}`
+    });
+  }
 };
 
 export default hotelsHandler;
