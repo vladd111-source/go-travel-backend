@@ -69,46 +69,46 @@ const hotelsHandler = async (req, res) => {
 
     let hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
 
-    // 🔁 Fallback на search API
-    if (!hotels.length) {
-      const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location: fallbackLocation,
-          checkIn,
-          checkOut,
-          adultsCount: 2,
-          language: "ru",
-          currency: "usd",
-          token,
-          marker,
-        }),
-      });
+  // 🔁 Fallback на search API
+if (!hotels.length) {
+  const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      locationId: locationId, // ✅ исправлено
+      checkIn,
+      checkOut,
+      adultsCount: 2,
+      language: "ru",
+      currency: "usd",
+      token,
+      marker,
+    }),
+  });
 
-      let startData;
-      try {
-        startData = await startRes.json();
-      } catch {
-        const fallback = await startRes.text();
-        throw new Error(`❌ Ошибка от search/start API: ${fallback}`);
-      }
+  let startData;
+  try {
+    startData = await startRes.json();
+  } catch {
+    const fallback = await startRes.text();
+    throw new Error(`❌ Ошибка от search/start API: ${fallback}`);
+  }
 
-      const searchId = startData?.searchId;
-      if (!searchId) throw new Error("❌ searchId не получен");
+  const searchId = startData?.searchId;
+  if (!searchId) throw new Error("❌ searchId не получен");
 
-      await new Promise((r) => setTimeout(r, 2000));
+  await new Promise((r) => setTimeout(r, 2000));
 
-      const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
-      const resultsText = await resultsRes.text();
+  const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
+  const resultsText = await resultsRes.text();
 
-      try {
-        const resultsJson = JSON.parse(resultsText);
-        hotels = (resultsJson.results || []).filter(h => h.available && h.priceFrom > 0);
-      } catch {
-        throw new Error(`❌ Невалидный JSON от results API: ${resultsText}`);
-      }
-    }
+  try {
+    const resultsJson = JSON.parse(resultsText);
+    hotels = (resultsJson.results || []).filter(h => h.available && h.priceFrom > 0);
+  } catch {
+    throw new Error(`❌ Невалидный JSON от results API: ${resultsText}`);
+  }
+}
 
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
