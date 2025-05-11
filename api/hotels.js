@@ -1,3 +1,5 @@
+import fetch from "node-fetch";
+
 const hotelsHandler = async (req, res) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
@@ -11,6 +13,9 @@ const hotelsHandler = async (req, res) => {
   if (!checkIn || !checkOut) {
     return res.status(400).json({ error: "❌ Требуются параметры checkIn и checkOut" });
   }
+
+  const token = "067df6a5f1de28c8a898bc83744dfdcd";
+  const marker = 618281;
 
   async function translateCity(city) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
@@ -28,41 +33,25 @@ const hotelsHandler = async (req, res) => {
     }
   }
 
-  const token = "067df6a5f1de28c8a898bc83744dfdcd";
-  const marker = 618281;
-  const city = await translateCity(originalCity);
-
   try {
-    // 🔎 Шаг 1: старт поиска
-    const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: city,
-        checkIn,
-        checkOut,
-        adultsCount: 2,
-        language: "ru",
-        currency: "usd",
-        token,
-        marker
-      }),
-    });
+    const city = await translateCity(originalCity);
 
-    const startData = await startRes.json();
-    const searchId = startData.searchId;
-    if (!searchId) throw new Error("Не удалось получить searchId");
+    // 🔍 Получаем locationId
+    const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
+    const lookupRes = await fetch(lookupUrl);
+    const lookupData = await lookupRes.json();
+    const locationId = lookupData?.results?.locations?.[0]?.id;
 
-    // 🕓 Подождать перед запросом (API async)
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    if (!locationId) {
+      throw new Error("Локация не найдена");
+    }
 
-    // 🏨 Шаг 2: получить результаты
-    const resultsUrl = `https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`;
-    const resultsRes = await fetch(resultsUrl);
-    if (!resultsRes.ok) throw new Error(`Ошибка получения результатов: ${resultsRes.status}`);
-    const data = await resultsRes.json();
+    // 📦 Получаем список отелей по locationId
+    const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
+    const cacheRes = await fetch(cacheUrl);
+    const data = await cacheRes.json();
 
-    if (!Array.isArray(data.results)) {
+    if (!Array.isArray(data)) {
       throw new Error("Результаты не в массиве");
     }
 
@@ -70,15 +59,15 @@ const hotelsHandler = async (req, res) => {
     const checkOutDate = new Date(checkOut);
     const nights = Math.max(1, (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
 
-    const hotels = data.results
-      .filter(h => h.available) // ✅ Только с доступными местами
+    const hotels = data
+      .filter(h => h.priceFrom > 0)
       .map(h => ({
         id: h.hotelId || h.id || null,
         name: h.hotelName || h.name || "Без названия",
-        city: h.location?.name || city,
-        price: h.priceAvg ? Math.floor(h.priceAvg / nights) : 0,
+        city: h.city || city,
+        price: h.priceFrom ? Math.floor(h.priceFrom / nights) : 0,
+        fullPrice: h.priceFrom || 0,
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        location: h.location || null,
         image: h.hotelId ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto` : null,
       }));
 
