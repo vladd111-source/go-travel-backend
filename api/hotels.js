@@ -36,7 +36,6 @@ const hotelsHandler = async (req, res) => {
   try {
     const city = await translateCity(originalCity);
 
-    // 🔍 lookup locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupText = await lookupRes.text();
@@ -54,12 +53,13 @@ const hotelsHandler = async (req, res) => {
     }
 
     const locationId = lookupData?.results?.locations?.[0]?.id;
+    const fallbackLocation = lookupData?.results?.locations?.[0]?.fullName || city;
+
     if (!locationId) {
       console.warn("⚠️ Локация не найдена:", city);
       return res.status(404).json({ error: `Локация не найдена: ${city}` });
     }
 
-    // 📦 cache API
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const rawText = await cacheRes.text();
@@ -81,7 +81,7 @@ const hotelsHandler = async (req, res) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          location: city,
+          location: fallbackLocation,
           checkIn,
           checkOut,
           adultsCount: 2,
