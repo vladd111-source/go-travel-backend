@@ -38,6 +38,8 @@ const hotelsHandler = async (req, res) => {
 
     // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
+    // 👇 Добавь прямо сюда:
+console.log("🔍 lookup URL:", lookupUrl);
     const lookupRes = await fetch(lookupUrl);
     const lookupText = await lookupRes.text();
     console.log("📌 Ответ от lookup API (text):", lookupText);
