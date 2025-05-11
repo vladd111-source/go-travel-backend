@@ -36,9 +36,7 @@ const hotelsHandler = async (req, res) => {
   try {
     const city = await translateCity(originalCity);
 
-    // 🔍 lookup locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
-    console.log("🔍 lookup URL:", lookupUrl);
     const lookupRes = await fetch(lookupUrl);
     const lookupText = await lookupRes.text();
 
@@ -60,9 +58,7 @@ const hotelsHandler = async (req, res) => {
       return res.status(404).json({ error: `Локация не найдена: ${city}` });
     }
 
-    // 📦 cache API
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
-    console.log("📦 cache URL:", cacheUrl);
     const cacheRes = await fetch(cacheUrl);
     const rawText = await cacheRes.text();
 
@@ -76,7 +72,6 @@ const hotelsHandler = async (req, res) => {
 
     let hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
 
-    // 🔁 fallback: search API
     if (!hotels.length) {
       console.log("🔁 Fallback на search API");
 
@@ -95,7 +90,20 @@ const hotelsHandler = async (req, res) => {
         }),
       });
 
-      const startJson = await startRes.json();
+      const startText = await startRes.text();
+
+      if (!startRes.ok || startText.includes("Unknown api method")) {
+        console.error("❌ Ошибка от search/start API:", startText);
+        throw new Error(`Search API вернул ошибку: ${startText}`);
+      }
+
+      let startJson;
+      try {
+        startJson = JSON.parse(startText);
+      } catch {
+        throw new Error("❌ Невалидный JSON от search/start API");
+      }
+
       const searchId = startJson?.searchId;
       if (!searchId) throw new Error("❌ searchId не получен");
 
