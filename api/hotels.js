@@ -11,37 +11,41 @@ export default async function hotelsHandler(req, res, next) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
+    // 🛰️ Шаг 1: lookup
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
-    const lookupRaw = await lookupRes.text();
+    const contentType = lookupRes.headers.get("content-type") || "";
 
-    let locationId, fallbackLocation;
-    try {
-      const lookupData = JSON.parse(lookupRaw);
-      const location = lookupData?.results?.locations?.[0];
-      locationId = location?.id;
-      fallbackLocation = location?.fullName || city;
-    } catch {
-      throw new Error("❌ Не удалось распарсить lookup ответ: " + lookupRaw);
+    if (!lookupRes.ok || !contentType.includes("application/json")) {
+      const text = await lookupRes.text();
+      throw new Error(`❌ Ошибка от lookup API: ${lookupRes.status} — ${text}`);
     }
 
-    if (!locationId) {
+    const lookupData = await lookupRes.json();
+    const location = lookupData?.results?.locations?.[0];
+
+    if (!location?.id) {
       return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
     }
 
+    const locationId = location.id;
+    const fallbackLocation = location.fullName || city;
+
+    // 🛰️ Шаг 2: cache
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
-    const cacheRaw = await cacheRes.text();
-
+    const cacheType = cacheRes.headers.get("content-type") || "";
     let hotels = [];
-    try {
-      const data = JSON.parse(cacheRaw);
-      hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
-    } catch {
-      console.warn("⚠️ Не удалось распарсить cache JSON");
+
+    if (cacheRes.ok && cacheType.includes("application/json")) {
+      const cacheData = await cacheRes.json();
+      hotels = Array.isArray(cacheData) ? cacheData.filter(h => h.priceFrom > 0) : [];
+    } else {
+      const badText = await cacheRes.text();
+      console.warn("⚠️ Cache не JSON:", badText);
     }
 
-    // fallback на search
+    // 🛰️ Шаг 3: fallback через search
     if (!hotels.length) {
       const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
         method: "POST",
@@ -49,27 +53,27 @@ export default async function hotelsHandler(req, res, next) {
         body: JSON.stringify({ locationId, checkIn, checkOut, adultsCount: 2, language: "ru", currency: "usd", token, marker })
       });
 
-      const startRaw = await startRes.text();
-      let searchId;
-      try {
-        const startData = JSON.parse(startRaw);
-        searchId = startData?.searchId;
-      } catch {
-        throw new Error("❌ Не удалось распарсить start JSON: " + startRaw);
+      const startType = startRes.headers.get("content-type") || "";
+      if (!startRes.ok || !startType.includes("application/json")) {
+        const errText = await startRes.text();
+        throw new Error(`❌ Ошибка start API: ${startRes.status} — ${errText}`);
       }
 
+      const startData = await startRes.json();
+      const searchId = startData?.searchId;
       if (!searchId) throw new Error("❌ searchId отсутствует");
 
       await new Promise(r => setTimeout(r, 2000));
 
       const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
-      const resultsRaw = await resultsRes.text();
-      try {
-        const resultsData = JSON.parse(resultsRaw);
-        hotels = (resultsData.results || []).filter(h => h.available && h.priceFrom > 0);
-      } catch {
-        throw new Error("❌ Не удалось распарсить results JSON: " + resultsRaw);
+      const resultsType = resultsRes.headers.get("content-type") || "";
+      if (!resultsRes.ok || !resultsType.includes("application/json")) {
+        const failText = await resultsRes.text();
+        throw new Error(`❌ Ошибка results API: ${resultsRes.status} — ${failText}`);
       }
+
+      const resultsData = await resultsRes.json();
+      hotels = (resultsData.results || []).filter(h => h.available && h.priceFrom > 0);
     }
 
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
@@ -85,13 +89,7 @@ export default async function hotelsHandler(req, res, next) {
 
     return res.status(200).json(result);
   } catch (err) {
-  const errorInfo = {
-    message: err.message,
-    stack: err.stack,
-    note: "📛 Проверь токен, даты, locationId и доступность Hotellook API",
-  };
-
-  console.error("❌ Полная ошибка:", errorInfo);
-  return res.status(500).json({ error: errorInfo });
-}
+    console.error("❌ Ошибка:", err.stack || err.message);
+    return res.status(500).json({ error: `❌ ${err.message}` });
+  }
 }
