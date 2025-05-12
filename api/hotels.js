@@ -19,7 +19,6 @@ const hotelsHandler = async (req, res) => {
 
   const translateCity = async (city) => {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
-
     try {
       const res = await fetch("https://libretranslate.de/translate", {
         method: "POST",
@@ -36,25 +35,25 @@ const hotelsHandler = async (req, res) => {
   try {
     const city = await translateCity(originalCity);
 
-    // ✅ Lookup с проверкой типа контента
+    // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
 
     if (!lookupRes.ok) {
-      const errorText = await lookupRes.text();
-      throw new Error(`❌ Lookup API вернул ${lookupRes.status}: ${errorText}`);
+      const raw = await lookupRes.text();
+      throw new Error(`❌ Ошибка от lookup API (${lookupRes.status}): ${raw}`);
     }
 
     const contentType = lookupRes.headers.get("content-type");
     if (!contentType?.includes("application/json")) {
       const raw = await lookupRes.text();
-      throw new Error(`❌ Lookup ответ не JSON: ${raw}`);
+      throw new Error(`❌ Lookup API не вернул JSON: ${raw}`);
     }
 
     const lookupData = await lookupRes.json();
-
     const locations = lookupData?.results?.locations || [];
     const preferred = locations.find(loc => loc.countryCode === "FR") || locations[0];
+
     const locationId = preferred?.id;
     const fallbackLocation = preferred?.fullName || city;
 
@@ -62,24 +61,21 @@ const hotelsHandler = async (req, res) => {
       return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
     }
 
-    // ✅ Получаем отели из cache API
+    // 🧊 Пробуем cache API
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
-    let hotels = [];
 
+    let hotels = [];
     try {
-      const contentType = cacheRes.headers.get("content-type");
-      if (contentType?.includes("application/json")) {
-        const cacheData = await cacheRes.json();
-        hotels = Array.isArray(cacheData) ? cacheData.filter(h => h.priceFrom > 0) : [];
-      } else {
-        throw new Error(`Cache ответ не JSON: ${await cacheRes.text()}`);
-      }
-    } catch (e) {
-      console.warn("⚠️ Cache API не вернул JSON:", e.message);
+      const type = cacheRes.headers.get("content-type");
+      if (!type?.includes("application/json")) throw new Error(await cacheRes.text());
+      const data = await cacheRes.json();
+      hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
+    } catch (err) {
+      console.warn("⚠️ Cache API не дал результатов:", err.message);
     }
 
-    // 🔁 Если нет отелей — fallback на search API
+    // 🔁 Если пусто — fallback на search API
     if (!hotels.length) {
       const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
         method: "POST",
@@ -96,6 +92,8 @@ const hotelsHandler = async (req, res) => {
         })
       });
 
+      if (!startRes.ok) throw new Error(`❌ Ошибка от start API: ${await startRes.text()}`);
+
       const startData = await startRes.json();
       const searchId = startData?.searchId;
       if (!searchId) throw new Error("❌ searchId не получен");
@@ -103,12 +101,12 @@ const hotelsHandler = async (req, res) => {
       await new Promise(r => setTimeout(r, 2000));
 
       const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
-      const resultsJson = await resultsRes.json();
-      hotels = (resultsJson.results || []).filter(h => h.available && h.priceFrom > 0);
+      const resultsData = await resultsRes.json();
+
+      hotels = (resultsData.results || []).filter(h => h.available && h.priceFrom > 0);
     }
 
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
-
     const result = hotels.map(h => ({
       id: h.hotelId || h.id || null,
       name: h.hotelName || h.name || "Без названия",
@@ -121,7 +119,7 @@ const hotelsHandler = async (req, res) => {
 
     return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ Полная ошибка:", err.message || err);
+    console.error("❌ Полная ошибка:", err.stack || err);
     return res.status(500).json({ error: `❌ Ошибка при получении отелей: ${err.message}` });
   }
 };
