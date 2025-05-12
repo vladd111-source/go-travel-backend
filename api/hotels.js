@@ -36,7 +36,7 @@ const hotelsHandler = async (req, res) => {
   try {
     const city = await translateCity(originalCity);
 
-    // 🔍 Lookup для locationId
+    // 🔍 Lookup с приоритетом на страну France
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupText = await lookupRes.text();
@@ -48,8 +48,11 @@ const hotelsHandler = async (req, res) => {
       throw new Error(`❌ Невалидный JSON от lookup API: ${lookupText}`);
     }
 
-    const locationId = lookupData?.results?.locations?.[0]?.id;
-    const fallbackLocation = lookupData?.results?.locations?.[0]?.fullName || city;
+    const locations = lookupData?.results?.locations || [];
+    const preferred = locations.find(loc => loc.countryCode === "FR") || locations[0];
+
+    const locationId = preferred?.id;
+    const fallbackLocation = preferred?.fullName || city;
 
     if (!locationId) {
       return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
@@ -117,7 +120,7 @@ const hotelsHandler = async (req, res) => {
     const result = hotels.map(h => ({
       id: h.hotelId || h.id || null,
       name: h.hotelName || h.name || "Без названия",
-      city: h.city || city,
+      city: h.city || fallbackLocation,
       price: Math.floor((h.priceFrom || h.priceAvg || 0) / nights),
       fullPrice: h.priceFrom || h.priceAvg || 0,
       rating: h.rating || (h.stars ? h.stars * 2 : 0),
