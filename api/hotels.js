@@ -1,6 +1,15 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
+  // ✅ CORS-заголовки для фронтенда
+  res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end(); // preflight
+  }
+
   try {
     const { city = "Paris", checkIn, checkOut } = req.query;
 
@@ -11,7 +20,7 @@ export default async function handler(req, res) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
-    // 🔍 Получение locationId по городу
+    // 🔍 Lookup
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupType = lookupRes.headers.get("content-type");
@@ -31,7 +40,7 @@ export default async function handler(req, res) {
     const locationId = location.id;
     const fallbackCity = location.fullName || city;
 
-    // 📦 Получение отелей из cache.json
+    // 📦 Cache
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheType = cacheRes.headers.get("content-type");
@@ -43,6 +52,7 @@ export default async function handler(req, res) {
 
     const cacheData = await cacheRes.json();
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
+
     const hotels = Array.isArray(cacheData)
       ? cacheData.filter(h => h.priceFrom > 0).map(h => ({
           id: h.hotelId || h.id,
