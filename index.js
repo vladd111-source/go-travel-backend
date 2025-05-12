@@ -1,12 +1,13 @@
 import express from "express";
 import hotelsHandler from "./hotels.js";
-import flightsHandler from "./flights.js"; // если есть
+import flightsHandler from "./flights.js"; // ✅ если используешь
 import proxySearchHandler from "./proxy-search.js";
 import proxyResultsHandler from "./proxy-results.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// POST-парсинг
 app.use(express.json());
 
 // ✅ CORS Middleware
@@ -30,11 +31,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ API routes
+// ✅ Роуты
 app.get("/api/hotels", hotelsHandler);
+app.get("/api/flights", flightsHandler); // ✅ включи если нужно
 app.post("/api/proxy-search", proxySearchHandler);
 app.get("/api/proxy-results", proxyResultsHandler);
-// app.get("/api/flights", flightsHandler); // если используешь
 
 app.listen(PORT, () => {
   console.log(`✅ Backend запущен: http://localhost:${PORT}`);
