@@ -20,23 +20,20 @@ const hotelsHandler = async (req, res) => {
   async function translateCity(city) {
     if (/^[a-zA-Z\s]+$/.test(city)) return city;
     try {
-      const response = await fetch("https://libretranslate.de/translate", {
+      const res = await fetch("https://libretranslate.de/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ q: city, source: "auto", target: "en", format: "text" }),
       });
-      const data = await response.json();
+      const data = await res.json();
       return data?.translatedText || city;
-    } catch (err) {
-      console.warn("⚠️ Ошибка перевода:", err.message);
+    } catch {
       return city;
     }
   }
 
   try {
     const city = await translateCity(originalCity);
-
-    // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupText = await lookupRes.text();
@@ -45,38 +42,35 @@ const hotelsHandler = async (req, res) => {
     try {
       lookupData = JSON.parse(lookupText);
     } catch {
-      throw new Error(`❌ Невалидный JSON от lookup API: ${lookupText}`);
+      throw new Error("❌ Lookup API вернул невалидный JSON");
     }
 
     const locationId = lookupData?.results?.locations?.[0]?.id;
-    const fallbackLocation = lookupData?.results?.locations?.[0]?.fullName || city;
-
     if (!locationId) {
-      return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
+      return res.status(404).json({ error: `❌ Локация не найдена для города ${city}` });
     }
 
-    // 📦 Запрос через cache API
+    // 1. Пробуем получить по cache
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheText = await cacheRes.text();
 
-    let data;
+    let hotelsData;
     try {
-      data = JSON.parse(cacheText);
+      hotelsData = JSON.parse(cacheText);
     } catch {
-      console.warn("⚠️ Невалидный JSON от cache API");
-      data = null;
+      hotelsData = [];
     }
 
-    let hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
+    let hotels = Array.isArray(hotelsData) ? hotelsData.filter(h => h.priceFrom > 0) : [];
 
-    // 🔁 Fallback на search API (если cache пустой)
+    // 2. Fallback через search API
     if (!hotels.length) {
-      const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
+      const searchStartRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          locationId: locationId,
+          locationId,
           checkIn,
           checkOut,
           adultsCount: 2,
@@ -87,19 +81,12 @@ const hotelsHandler = async (req, res) => {
         }),
       });
 
-      let startData;
-      try {
-        startData = await startRes.json();
-      } catch {
-        const fallback = await startRes.text();
-        throw new Error(`❌ Ошибка от search/start API: ${fallback}`);
-      }
-
-      const searchId = startData?.searchId;
+      const searchStartText = await searchStartRes.text();
+      const searchStartData = JSON.parse(searchStartText);
+      const searchId = searchStartData?.searchId;
       if (!searchId) throw new Error("❌ searchId не получен");
 
-      // ⏳ Подождать 2 секунды
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
       const resultsText = await resultsRes.text();
@@ -108,10 +95,11 @@ const hotelsHandler = async (req, res) => {
         const resultsJson = JSON.parse(resultsText);
         hotels = (resultsJson.results || []).filter(h => h.available && h.priceFrom > 0);
       } catch {
-        throw new Error(`❌ Невалидный JSON от results API: ${resultsText}`);
+        throw new Error(`❌ Невалидный JSON от search/results: ${resultsText}`);
       }
     }
 
+    // 💰 Подсчёт
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     const nights = Math.max(1, (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
@@ -130,10 +118,8 @@ const hotelsHandler = async (req, res) => {
 
     return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ Полная ошибка:", err.message || err);
-    return res.status(500).json({
-      error: `❌ Ошибка при получении отелей: ${err.message || "Unknown error"}`,
-    });
+    console.error("❌ Ошибка:", err.message);
+    return res.status(500).json({ error: `❌ Ошибка: ${err.message}` });
   }
 };
 
