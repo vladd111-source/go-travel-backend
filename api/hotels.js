@@ -17,18 +17,8 @@ const hotelsHandler = async (req, res) => {
   const marker = 618281;
 
   try {
-    // 🔍 Получаем locationId
-    const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
-    const lookupRes = await fetch(lookupUrl);
-    const lookupText = await lookupRes.text();
-
-    let lookupData;
-    try {
-      lookupData = JSON.parse(lookupText);
-    } catch {
-      throw new Error(`❌ Невалидный JSON от lookup API: ${lookupText}`);
-    }
-
+    const lookupRes = await fetch(`https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`);
+    const lookupData = await lookupRes.json();
     const locationId = lookupData?.results?.locations?.[0]?.id;
     const fallbackLocation = lookupData?.results?.locations?.[0]?.fullName || city;
 
@@ -36,35 +26,53 @@ const hotelsHandler = async (req, res) => {
       return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
     }
 
-    // 📦 Запрос только cache API (без fallback!)
+    // 🧊 Пробуем cache API
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
-    const cacheText = await cacheRes.text();
+    let hotels = [];
 
-    let data;
     try {
-      data = JSON.parse(cacheText);
-    } catch {
-      throw new Error(`❌ Невалидный JSON от cache API: ${cacheText}`);
+      const text = await cacheRes.text();
+      const data = JSON.parse(text);
+      hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
+    } catch (err) {
+      console.warn("⚠️ Cache не вернул JSON");
+    }
+
+    // 🔁 Fallback на search, если cache пуст
+    if (!hotels.length) {
+      const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locationId, checkIn, checkOut, adultsCount: 2, language: "ru", currency: "usd", token, marker })
+      });
+
+      const startData = await startRes.json();
+      const searchId = startData?.searchId;
+      if (!searchId) throw new Error("❌ searchId не получен");
+
+      await new Promise(r => setTimeout(r, 2000));
+
+      const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
+      const resultsData = await resultsRes.json();
+      hotels = (resultsData.results || []).filter(h => h.available && h.priceFrom > 0);
     }
 
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
-    const hotels = Array.isArray(data)
-      ? data.filter(h => h.priceFrom > 0).map(h => ({
-          id: h.hotelId || h.id || null,
-          name: h.hotelName || h.name || "Без названия",
-          city: h.city || fallbackLocation,
-          price: Math.floor((h.priceFrom || h.priceAvg || 0) / nights),
-          fullPrice: h.priceFrom || h.priceAvg || 0,
-          rating: h.rating || (h.stars ? h.stars * 2 : 0),
-          image: h.hotelId ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto` : null,
-        }))
-      : [];
+    const result = hotels.map(h => ({
+      id: h.hotelId || h.id || null,
+      name: h.hotelName || h.name || "Без названия",
+      city: h.city || fallbackLocation,
+      price: Math.floor((h.priceFrom || h.priceAvg || 0) / nights),
+      fullPrice: h.priceFrom || h.priceAvg || 0,
+      rating: h.rating || (h.stars ? h.stars * 2 : 0),
+      image: h.hotelId ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto` : null,
+    }));
 
-    return res.status(200).json(hotels);
+    return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ Полная ошибка:", err.stack || err);
-    return res.status(500).json({ error: `❌ Ошибка сервера: ${err.message}` });
+    console.error("❌ Ошибка:", err.stack || err);
+    return res.status(500).json({ error: `❌ ${err.message || "Unknown error"}` });
   }
 };
 
