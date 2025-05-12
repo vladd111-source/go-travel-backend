@@ -2,6 +2,9 @@
   "name": "go-travel-backend",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "build": "echo 'No build needed'"
+  },
   "dependencies": {
     "node-fetch": "^3.3.1"
   }
