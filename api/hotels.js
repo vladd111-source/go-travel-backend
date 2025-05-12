@@ -27,7 +27,8 @@ const hotelsHandler = async (req, res) => {
       });
       const data = await response.json();
       return data?.translatedText || city;
-    } catch {
+    } catch (err) {
+      console.warn("⚠️ Ошибка перевода:", err.message);
       return city;
     }
   }
@@ -38,10 +39,9 @@ const hotelsHandler = async (req, res) => {
     // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
-
     const lookupText = await lookupRes.text();
-    let lookupData;
 
+    let lookupData;
     try {
       lookupData = JSON.parse(lookupText);
     } catch {
@@ -55,7 +55,7 @@ const hotelsHandler = async (req, res) => {
       return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
     }
 
-    // 📦 Cache API
+    // 📦 Запрос через cache API
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheText = await cacheRes.text();
@@ -64,51 +64,53 @@ const hotelsHandler = async (req, res) => {
     try {
       data = JSON.parse(cacheText);
     } catch {
+      console.warn("⚠️ Невалидный JSON от cache API");
       data = null;
     }
 
     let hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
 
-  // 🔁 Fallback на search API
-if (!hotels.length) {
-  const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      locationId: locationId, // ✅ исправлено
-      checkIn,
-      checkOut,
-      adultsCount: 2,
-      language: "ru",
-      currency: "usd",
-      token,
-      marker,
-    }),
-  });
+    // 🔁 Fallback на search API (если cache пустой)
+    if (!hotels.length) {
+      const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locationId: locationId,
+          checkIn,
+          checkOut,
+          adultsCount: 2,
+          language: "ru",
+          currency: "usd",
+          token,
+          marker,
+        }),
+      });
 
-  let startData;
-  try {
-    startData = await startRes.json();
-  } catch {
-    const fallback = await startRes.text();
-    throw new Error(`❌ Ошибка от search/start API: ${fallback}`);
-  }
+      let startData;
+      try {
+        startData = await startRes.json();
+      } catch {
+        const fallback = await startRes.text();
+        throw new Error(`❌ Ошибка от search/start API: ${fallback}`);
+      }
 
-  const searchId = startData?.searchId;
-  if (!searchId) throw new Error("❌ searchId не получен");
+      const searchId = startData?.searchId;
+      if (!searchId) throw new Error("❌ searchId не получен");
 
-  await new Promise((r) => setTimeout(r, 2000));
+      // ⏳ Подождать 2 секунды
+      await new Promise((r) => setTimeout(r, 2000));
 
-  const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
-  const resultsText = await resultsRes.text();
+      const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
+      const resultsText = await resultsRes.text();
 
-  try {
-    const resultsJson = JSON.parse(resultsText);
-    hotels = (resultsJson.results || []).filter(h => h.available && h.priceFrom > 0);
-  } catch {
-    throw new Error(`❌ Невалидный JSON от results API: ${resultsText}`);
-  }
-}
+      try {
+        const resultsJson = JSON.parse(resultsText);
+        hotels = (resultsJson.results || []).filter(h => h.available && h.priceFrom > 0);
+      } catch {
+        throw new Error(`❌ Невалидный JSON от results API: ${resultsText}`);
+      }
+    }
 
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
