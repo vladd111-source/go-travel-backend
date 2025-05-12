@@ -13,7 +13,6 @@ export default async function handler(req, res) {
 
     // 🔍 Step 1: Lookup
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
-    console.log("🌍 Lookup URL:", lookupUrl);
     const lookupRes = await fetch(lookupUrl);
     const lookupType = lookupRes.headers.get("content-type");
 
@@ -32,12 +31,14 @@ export default async function handler(req, res) {
     const locationId = location.id;
     const fallbackCity = location.fullName || city;
 
-    // 🚀 Step 2: Start Search
-    const startUrl = "https://engine.hotellook.com/api/v2/search/start";
-    console.log("🚀 Start URL:", startUrl);
-    const startRes = await fetch(startUrl, {
+    // 🚀 Step 2: Start Search (с добавлением нужных заголовков!)
+    const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (GoTravelBot/1.0)"
+      },
       body: JSON.stringify({
         locationId,
         checkIn,
@@ -60,12 +61,11 @@ export default async function handler(req, res) {
     const searchId = startData?.searchId;
     if (!searchId) throw new Error("❌ searchId отсутствует");
 
-    await new Promise(r => setTimeout(r, 2500)); // wait for results
+    // 🕐 Подождать немного
+    await new Promise(r => setTimeout(r, 2500));
 
     // 📥 Step 3: Get Results
-    const resultsUrl = `https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`;
-    console.log("📥 Results URL:", resultsUrl);
-    const resultsRes = await fetch(resultsUrl);
+    const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
     const resultsType = resultsRes.headers.get("content-type");
 
     if (!resultsType || !resultsType.includes("application/json")) {
