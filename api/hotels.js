@@ -17,29 +17,41 @@ const hotelsHandler = async (req, res) => {
   const marker = 618281;
 
   try {
-    const lookupRes = await fetch(`https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`);
-    const lookupData = await lookupRes.json();
-    const locationId = lookupData?.results?.locations?.[0]?.id;
-    const fallbackLocation = lookupData?.results?.locations?.[0]?.fullName || city;
+    // 🔍 Lookup
+    const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
+    const lookupRes = await fetch(lookupUrl);
+    const lookupRaw = await lookupRes.text();
+    console.log("📦 Lookup raw:", lookupRaw);
+
+    let locationId, fallbackLocation;
+    try {
+      const lookupData = JSON.parse(lookupRaw);
+      const location = lookupData?.results?.locations?.[0];
+      locationId = location?.id;
+      fallbackLocation = location?.fullName || city;
+    } catch (e) {
+      throw new Error("❌ Не удалось распарсить lookup ответ: " + lookupRaw);
+    }
 
     if (!locationId) {
       return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
     }
 
-    // 🧊 Пробуем cache API
+    // 🧊 Cache API
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
-    let hotels = [];
+    const cacheRaw = await cacheRes.text();
+    console.log("📦 Cache raw:", cacheRaw);
 
+    let hotels = [];
     try {
-      const text = await cacheRes.text();
-      const data = JSON.parse(text);
+      const data = JSON.parse(cacheRaw);
       hotels = Array.isArray(data) ? data.filter(h => h.priceFrom > 0) : [];
     } catch (err) {
-      console.warn("⚠️ Cache не вернул JSON");
+      console.warn("⚠️ Не удалось распарсить cache JSON:", err.message);
     }
 
-    // 🔁 Fallback на search, если cache пуст
+    // 🔁 Fallback — search API
     if (!hotels.length) {
       const startRes = await fetch("https://engine.hotellook.com/api/v2/search/start", {
         method: "POST",
@@ -47,15 +59,31 @@ const hotelsHandler = async (req, res) => {
         body: JSON.stringify({ locationId, checkIn, checkOut, adultsCount: 2, language: "ru", currency: "usd", token, marker })
       });
 
-      const startData = await startRes.json();
-      const searchId = startData?.searchId;
-      if (!searchId) throw new Error("❌ searchId не получен");
+      const startRaw = await startRes.text();
+      console.log("📦 Start raw:", startRaw);
+
+      let searchId;
+      try {
+        const startData = JSON.parse(startRaw);
+        searchId = startData?.searchId;
+      } catch (e) {
+        throw new Error("❌ Не удалось распарсить start JSON: " + startRaw);
+      }
+
+      if (!searchId) throw new Error("❌ searchId отсутствует");
 
       await new Promise(r => setTimeout(r, 2000));
 
       const resultsRes = await fetch(`https://engine.hotellook.com/api/v2/search/results.json?searchId=${searchId}`);
-      const resultsData = await resultsRes.json();
-      hotels = (resultsData.results || []).filter(h => h.available && h.priceFrom > 0);
+      const resultsRaw = await resultsRes.text();
+      console.log("📦 Results raw:", resultsRaw);
+
+      try {
+        const resultsData = JSON.parse(resultsRaw);
+        hotels = (resultsData.results || []).filter(h => h.available && h.priceFrom > 0);
+      } catch (e) {
+        throw new Error("❌ Не удалось распарсить results JSON: " + resultsRaw);
+      }
     }
 
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
@@ -71,8 +99,8 @@ const hotelsHandler = async (req, res) => {
 
     return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ Ошибка:", err.stack || err);
-    return res.status(500).json({ error: `❌ ${err.message || "Unknown error"}` });
+    console.error("❌ Ошибка сервера:", err.stack || err);
+    return res.status(500).json({ error: `❌ ${err.message}` });
   }
 };
 
