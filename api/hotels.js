@@ -85,7 +85,13 @@ export default async function hotelsHandler(req, res, next) {
 
     return res.status(200).json(result);
   } catch (err) {
-    console.error("❌ Ошибка:", err.stack || err);
-    return res.status(500).json({ error: `❌ ${err.message}` });
-  }
+  const errorInfo = {
+    message: err.message,
+    stack: err.stack,
+    note: "📛 Проверь токен, даты, locationId и доступность Hotellook API",
+  };
+
+  console.error("❌ Полная ошибка:", errorInfo);
+  return res.status(500).json({ error: errorInfo });
+}
 }
