@@ -67,7 +67,7 @@ const hotels = Array.isArray(cacheData)
           fullPrice,
           pricePerNight: Math.floor(fullPrice / nights),
           rating: h.rating || (h.stars ? h.stars * 2 : 0),
-          image: `https://photo.hotellook.com/image_v2/limit/${hotelId}/800/520.auto`
+          image: `https://photo.hotellook.com/image_v2/crop/${hotelId}/2048/1536.auto`
         };
       })
   : [];
