@@ -50,31 +50,30 @@ export default async function handler(req, res) {
       throw new Error(`❌ Cache API не вернул JSON: ${raw}`);
     }
 
-    const cacheData = await cacheRes.json();
+  const cacheData = await cacheRes.json();
 
-    const hotels = Array.isArray(cacheData)
-      ? cacheData
-          .filter(h => h.priceFrom > 0 && (h.hotelId || h.id))
-          .map(h => {
-            const hotelId = h.hotelId || h.id;
-            const fullPrice = h.priceFrom || 0;
+const hotels = Array.isArray(cacheData)
+  ? cacheData
+      .filter(h => h.priceFrom > 0 && h.hotelId) // Только с hotelId
+      .map(h => {
+        const hotelId = h.hotelId;
+        const fullPrice = h.priceFrom || 0;
 
-            return {
-              id: hotelId,
-              hotelId,
-              name: h.hotelName || h.name || "Без названия",
-              city: h.city || fallbackCity,
-              fullPrice,
-              pricePerNight: Math.floor(fullPrice / nights),
-              rating: h.rating || (h.stars ? h.stars * 2 : 0),
-              image: hotelId
-                ? `https://photo.hotellook.com/image_v2/limit/${hotelId}/800/520.auto`
-                : null
-            };
-          })
-      : [];
+        return {
+          id: hotelId,
+          hotelId,
+          name: h.hotelName || h.name || "Без названия",
+          city: h.city || fallbackCity,
+          fullPrice,
+          pricePerNight: Math.floor(fullPrice / nights),
+          rating: h.rating || (h.stars ? h.stars * 2 : 0),
+          image: `https://photo.hotellook.com/image_v2/limit/${hotelId}/800/520.auto`
+        };
+      })
+  : [];
 
-    return res.status(200).json(hotels);
+return res.status(200).json(hotels);
+    
   } catch (err) {
     console.error("❌ Ошибка:", err.stack || err.message);
     return res.status(500).json({ error: `❌ Ошибка при получении отелей: ${err.message}` });
