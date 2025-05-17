@@ -1,13 +1,12 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  // ✅ CORS-заголовки для фронтенда
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
-    return res.status(200).end(); // preflight
+    return res.status(200).end(); // Preflight
   }
 
   try {
@@ -20,7 +19,7 @@ export default async function handler(req, res) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
-    // 🔍 Определение locationId по городу
+    // 🔍 Определяем locationId по городу
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupType = lookupRes.headers.get("content-type");
@@ -39,22 +38,22 @@ export default async function handler(req, res) {
 
     const locationId = location.id;
     const fallbackCity = location.fullName || city;
-
-    // 🔎 Запрос на реальные доступные отели
-    const searchUrl = `https://engine.hotellook.com/api/v2/search.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
-    const searchRes = await fetch(searchUrl);
-    const searchType = searchRes.headers.get("content-type");
-
-    if (!searchType || !searchType.includes("application/json")) {
-      const raw = await searchRes.text();
-      throw new Error(`❌ Search API не вернул JSON: ${raw}`);
-    }
-
-    const searchData = await searchRes.json();
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-    const hotels = Array.isArray(searchData)
-      ? searchData
+    // ✅ Используем cache.json — отдает только отели с местами
+    const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
+    const cacheRes = await fetch(cacheUrl);
+    const cacheType = cacheRes.headers.get("content-type");
+
+    if (!cacheType || !cacheType.includes("application/json")) {
+      const raw = await cacheRes.text();
+      throw new Error(`❌ Cache API не вернул JSON: ${raw}`);
+    }
+
+    const cacheData = await cacheRes.json();
+
+    const hotels = Array.isArray(cacheData)
+      ? cacheData
           .filter(h => h.priceFrom > 0 && (h.hotelId || h.id))
           .map(h => {
             const hotelId = h.hotelId || h.id;
