@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
-    // 🔍 Lookup
+    // 🔍 Определение locationId по городу
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupType = lookupRes.headers.get("content-type");
@@ -40,31 +40,39 @@ export default async function handler(req, res) {
     const locationId = location.id;
     const fallbackCity = location.fullName || city;
 
-    // 📦 Cache
-    const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
-    const cacheRes = await fetch(cacheUrl);
-    const cacheType = cacheRes.headers.get("content-type");
+    // 🔎 Запрос на реальные доступные отели
+    const searchUrl = `https://engine.hotellook.com/api/v2/search.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
+    const searchRes = await fetch(searchUrl);
+    const searchType = searchRes.headers.get("content-type");
 
-    if (!cacheType || !cacheType.includes("application/json")) {
-      const raw = await cacheRes.text();
-      throw new Error(`❌ Cache API не вернул JSON: ${raw}`);
+    if (!searchType || !searchType.includes("application/json")) {
+      const raw = await searchRes.text();
+      throw new Error(`❌ Search API не вернул JSON: ${raw}`);
     }
 
-    const cacheData = await cacheRes.json();
+    const searchData = await searchRes.json();
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-    const hotels = Array.isArray(cacheData)
-      ? cacheData.filter(h => h.priceFrom > 0).map(h => ({
-          id: h.hotelId || h.id,
-          name: h.hotelName || h.name || "Без названия",
-          city: h.city || fallbackCity,
-          price: Math.floor(h.priceFrom / nights),
-          fullPrice: h.priceFrom,
-          rating: h.rating || (h.stars ? h.stars * 2 : 0),
-          image: h.hotelId
-            ? `https://photo.hotellook.com/image_v2/limit/${h.hotelId}/800/520.auto`
-            : null
-        }))
+    const hotels = Array.isArray(searchData)
+      ? searchData
+          .filter(h => h.priceFrom > 0 && (h.hotelId || h.id))
+          .map(h => {
+            const hotelId = h.hotelId || h.id;
+            const fullPrice = h.priceFrom || 0;
+
+            return {
+              id: hotelId,
+              hotelId,
+              name: h.hotelName || h.name || "Без названия",
+              city: h.city || fallbackCity,
+              fullPrice,
+              pricePerNight: Math.floor(fullPrice / nights),
+              rating: h.rating || (h.stars ? h.stars * 2 : 0),
+              image: hotelId
+                ? `https://photo.hotellook.com/image_v2/limit/${hotelId}/800/520.auto`
+                : null
+            };
+          })
       : [];
 
     return res.status(200).json(hotels);
