@@ -52,11 +52,16 @@ export default async function handler(req, res) {
     const photoJson = await photoRes.json(); // { hotelId: [photoId1, photoId2, ...] }
 
     // 🧱 Формируем итоговый массив
-   const hotels = hotelsRaw.map(h => {
+ const hotels = hotelsRaw.map(h => {
   const hotelId = h.hotelId;
   const fullPrice = h.priceFrom || 0;
+
   const photoList = photoJson[String(hotelId)];
-  const photoId = Array.isArray(photoList) && photoList.length > 0 ? photoList[0] : null;
+  const validPhotoId = Array.isArray(photoList) && photoList.length > 0 ? photoList.find(id => typeof id === "number" || /^\d+$/.test(id)) : null;
+
+  const imageUrl = validPhotoId
+    ? `https://photo.hotellook.com/image_v2/limit/${validPhotoId}/800/520.auto`
+    : "https://placehold.co/800x520?text=No+Image";
 
   return {
     id: hotelId,
@@ -66,9 +71,7 @@ export default async function handler(req, res) {
     fullPrice,
     pricePerNight: Math.floor(fullPrice / nights),
     rating: h.rating || (h.stars ? h.stars * 2 : 0),
-    image: photoId
-      ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
-      : "https://placehold.co/800x520?text=No+Image"
+    image: imageUrl
   };
 });
 
