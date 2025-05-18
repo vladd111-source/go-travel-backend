@@ -31,35 +31,34 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-    // 📦 Загружаем отели с доступными номерами
+    // 📦 Получаем отели
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheData = await cacheRes.json();
 
-    // 🔍 Фильтруем только те отели, где есть места
     const hotelsRaw = Array.isArray(cacheData)
       ? cacheData.filter(h => h.priceFrom > 0 && h.hotelId && h.hotelName)
       : [];
 
+    // 📸 Получаем фото id по hotelId
     const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
-
-    // 🖼 Получаем фотографии
     let photoJson = {};
+
     try {
       const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
       const photoRes = await fetch(photoApiUrl);
       photoJson = await photoRes.json();
     } catch (err) {
-      console.warn("⚠️ Ошибка при получении фотографий:", err.message);
+      console.warn("⚠️ Не удалось получить фото отелей:", err.message);
     }
 
-    // 📦 Формируем финальную выдачу
+    // 🧱 Формируем результат
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
       const fullPrice = h.priceFrom || 0;
 
-      const photoList = photoJson?.[String(hotelId)];
-      const photoId = Array.isArray(photoList) && photoList.length > 0 ? photoList.find(Boolean) : null;
+      const photoList = photoJson[String(hotelId)];
+      const photoId = Array.isArray(photoList) ? photoList.find(id => !!id) : null;
 
       return {
         id: hotelId,
