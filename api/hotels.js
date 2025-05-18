@@ -44,16 +44,20 @@ export default async function handler(req, res) {
 
     const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
 
-    // 🖼 Получаем фото id
+    // 🖼 Получаем photoId
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
-    const photoJson = await photoRes.json(); // { hotelId: [photoId1, photoId2, ...] }
+    const photoJson = await photoRes.json();
 
     // 🧱 Сбор данных отелей
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
       const fullPrice = h.priceFrom || 0;
-      const photoId = photoJson[hotelId]?.[0];
+
+      const photoList = photoJson[String(hotelId)];
+      const photoId = Array.isArray(photoList) && photoList.length > 0 ? photoList[0] : null;
+
+      console.log("📸 Photo for", hotelId, "→", photoId);
 
       return {
         id: hotelId,
@@ -65,7 +69,7 @@ export default async function handler(req, res) {
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
         image: photoId
           ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
-          : null
+          : "https://placehold.co/800x520?text=No+Image"
       };
     });
 
