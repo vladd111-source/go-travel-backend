@@ -16,6 +16,7 @@ export default async function handler(req, res) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
+    // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupJson = await lookupRes.json();
@@ -29,6 +30,7 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
+    // 📦 Получаем список отелей
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheData = await cacheRes.json();
@@ -39,6 +41,7 @@ export default async function handler(req, res) {
 
     const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
 
+    // 🖼 Получаем id фото
     let photoJson = {};
     try {
       const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
@@ -48,12 +51,11 @@ export default async function handler(req, res) {
       console.warn("⚠️ Не удалось загрузить фото:", err.message);
     }
 
+    // 🏨 Финальный массив отелей
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
-      const hotelIdStr = String(hotelId);
       const fullPrice = h.priceFrom || 0;
-      const photoList = photoJson?.[hotelIdStr];
-      const photoId = Array.isArray(photoList) ? photoList.find(p => !!p) : null;
+      const photoId = Array.isArray(photoJson?.[hotelId]) ? photoJson[hotelId][0] : null;
 
       return {
         id: hotelId,
