@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   req.on("data", chunk => (body += chunk));
   req.on("end", async () => {
     try {
-      const { question, telegramId } = JSON.parse(body);
+      const { question, telegramId, mode } = JSON.parse(body);
 
       if (!question || !telegramId) {
         res.writeHead(400, { "Content-Type": "application/json" });
@@ -35,8 +35,10 @@ export default async function handler(req, res) {
       }
       userTimestamps.set(telegramId, now);
 
+      const selectedModel = mode === "pro" ? "gpt-4" : "gpt-3.5-turbo";
+
       const chat = await openai.chat.completions.create({
-        model: "gpt-4",
+        model: selectedModel,
         messages: [
           {
             role: "system",
@@ -56,6 +58,7 @@ export default async function handler(req, res) {
         telegram_id: telegramId,
         question,
         answer,
+        model: selectedModel,
         timestamp: new Date().toISOString()
       });
 
