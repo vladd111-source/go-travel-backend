@@ -52,25 +52,29 @@ export default async function handler(req, res) {
     const photoJson = await photoRes.json(); // { hotelId: [photoId1, photoId2, ...] }
 
     // 🧱 Формируем итоговый массив
-    const hotels = hotelsRaw.map(h => {
-      const hotelId = h.hotelId;
-      const fullPrice = h.priceFrom || 0;
-      const photoList = photoJson?.[String(hotelId)];
-      const photoId = Array.isArray(photoList) && photoList.length > 0 ? photoList[0] : null;
+   const hotels = hotelsRaw.map(h => {
+  const hotelId = h.hotelId;
+  const fullPrice = h.priceFrom || 0;
+  const photoList = photoJson[String(hotelId)];
+  const photoId = Array.isArray(photoList) && photoList.length > 0 ? photoList[0] : null;
 
-      return {
-        id: hotelId,
-        hotelId,
-        name: h.hotelName || h.name || "Без названия",
-        city: h.city || fallbackCity,
-        fullPrice,
-        pricePerNight: Math.floor(fullPrice / nights),
-        rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        image: photoId
-          ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
-          : "https://placehold.co/800x520?text=No+Image"
-      };
-    });
+  if (!photoId) {
+    console.warn(`⚠️ Нет фото для hotelId: ${hotelId}`);
+  }
+
+  return {
+    id: hotelId,
+    hotelId,
+    name: h.hotelName || h.name || "Без названия",
+    city: h.city || fallbackCity,
+    fullPrice,
+    pricePerNight: Math.floor(fullPrice / nights),
+    rating: h.rating || (h.stars ? h.stars * 2 : 0),
+    image: photoId
+      ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpeg`
+      : "https://placehold.co/800x520?text=No+Image"
+  };
+});
 
     return res.status(200).json(hotels);
   } catch (err) {
