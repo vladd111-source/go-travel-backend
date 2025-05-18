@@ -1,10 +1,14 @@
 import http from "http";
-import handler from './api/hotels.js'; // если файл с API называется hotels.js
+import hotelHandler from './api/hotels.js';
+import gptHandler from './api/gpt.js';
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
   if (url.pathname === "/api/hotels") {
-    handler(req, res);
+    hotelHandler(req, res);
+  } else if (url.pathname === "/api/ask-gpt") {
+    gptHandler(req, res);
   } else {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("Not Found");
