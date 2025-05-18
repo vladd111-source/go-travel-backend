@@ -1,5 +1,5 @@
 import http from "http";
-import handler from "./hotels.js"; // если файл с API называется hotels.js
+import handler from './api/hotels.js'; // если файл с API называется hotels.js
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
