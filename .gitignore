@@ -1,1 +1,19 @@
+# 🛡️ Безопасность ключей и лишнего мусора
 .env
+
+# 🗑️ Node.js пакеты
+node_modules/
+
+# 💻 MacOS системные файлы
+.DS_Store
+
+# 🧪 Логи и кеши
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 💥 Vercel/Netlify/Build кеш
+.vercel/
+.netlify/
+.cache/
