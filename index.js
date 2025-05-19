@@ -1,7 +1,7 @@
 import http from "http";
 import hotelHandler from './api/hotels.js';
 import gptHandler from './api/gpt.js';
-import placesHandler from './api/places.js'; // 👈 добавь
+import placesHandler from './api/places.js'; // 👈 добавил импорт
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -10,6 +10,8 @@ const server = http.createServer((req, res) => {
     hotelHandler(req, res);
   } else if (url.pathname === "/api/ask-gpt") {
     gptHandler(req, res);
+  } else if (url.pathname === "/api/places") {
+    placesHandler(req, res); // 👈 добавил вызов
   } else {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("Not Found");
