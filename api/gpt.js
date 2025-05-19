@@ -8,20 +8,21 @@ const RATE_LIMIT_MS = 10 * 1000;
 const userTimestamps = new Map();
 
 export default async function handler(req, res) {
-  // ✅ CORS-заголовки
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // ✅ CORS
+  res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // ✅ Обработка preflight-запроса
   if (req.method === "OPTIONS") {
-    return res.writeHead(200).end();
+    res.writeHead(200);
+    res.end();
+    return;
   }
 
-  // ❌ Только POST-запросы
   if (req.method !== "POST") {
-    return res.writeHead(405, { "Content-Type": "application/json" })
-              .end(JSON.stringify({ error: "Метод не разрешён" }));
+    res.writeHead(405, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Метод не разрешён" }));
+    return;
   }
 
   let body = "";
@@ -31,15 +32,17 @@ export default async function handler(req, res) {
       const { question, telegramId, mode } = JSON.parse(body);
 
       if (!question || !telegramId) {
-        return res.writeHead(400, { "Content-Type": "application/json" })
-                  .end(JSON.stringify({ error: "Вопрос или telegramId не указан" }));
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Вопрос или telegramId не указан" }));
+        return;
       }
 
       const now = Date.now();
       const last = userTimestamps.get(telegramId) || 0;
       if (now - last < RATE_LIMIT_MS) {
-        return res.writeHead(429, { "Content-Type": "application/json" })
-                  .end(JSON.stringify({ error: "Слишком часто. Подожди пару секунд." }));
+        res.writeHead(429, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Слишком часто. Подожди пару секунд." }));
+        return;
       }
       userTimestamps.set(telegramId, now);
 
@@ -61,7 +64,6 @@ export default async function handler(req, res) {
 
       const answer = chat.choices[0]?.message?.content || "Нет ответа.";
 
-      // лог в Supabase
       await supabase.from("gpt_logs").insert({
         telegram_id: telegramId,
         question,
