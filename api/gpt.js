@@ -8,6 +8,19 @@ const RATE_LIMIT_MS = 10 * 1000;
 const userTimestamps = new Map();
 
 export default async function handler(req, res) {
+  // ✅ Добавляем CORS-заголовки
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // ✅ Обработка preflight-запроса (OPTIONS)
+  if (req.method === "OPTIONS") {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  // ❌ Запрет на другие методы кроме POST
   if (req.method !== "POST") {
     res.writeHead(405, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Метод не разрешён" }));
