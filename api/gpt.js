@@ -7,7 +7,6 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const RATE_LIMIT_MS = 10 * 1000;
 const userTimestamps = new Map();
 
-// ✅ Удобная функция чтения тела запроса
 async function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -48,9 +47,24 @@ export default async function handler(req, res) {
 
   try {
     const raw = await readBody(req);
-    if (!raw) throw new Error("Пустое тело запроса");
+    console.log("📦 RAW BODY:", raw); // 👈 лог тела запроса
 
-    const { question, telegramId, mode } = JSON.parse(raw);
+    if (!raw || raw.trim() === "") {
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: "Пустое тело запроса" }));
+      return;
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch (e) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: "Невалидный JSON" }));
+      return;
+    }
+
+    const { question, telegramId, mode } = payload;
 
     if (!question || !telegramId) {
       res.writeHead(400);
