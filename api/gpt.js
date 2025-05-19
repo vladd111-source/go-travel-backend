@@ -31,9 +31,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  // ✅ Для POST добавляем CORS
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
-  res.setHeader("Content-Type", "application/json");
+ // ✅ Для POST добавляем CORS
+res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+res.setHeader("Access-Control-Allow-Headers", "Content-Type"); // 👈 добавь это
+res.setHeader("Content-Type", "application/json");
 
   let body = "";
   req.on("data", chunk => (body += chunk));
