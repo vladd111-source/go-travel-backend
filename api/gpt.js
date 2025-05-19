@@ -8,23 +8,20 @@ const RATE_LIMIT_MS = 10 * 1000;
 const userTimestamps = new Map();
 
 export default async function handler(req, res) {
-  // ✅ Добавляем CORS-заголовки
+  // ✅ CORS-заголовки
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // ✅ Обработка preflight-запроса (OPTIONS)
+  // ✅ Обработка preflight-запроса
   if (req.method === "OPTIONS") {
-    res.writeHead(200);
-    res.end();
-    return;
+    return res.writeHead(200).end();
   }
 
-  // ❌ Запрет на другие методы кроме POST
+  // ❌ Только POST-запросы
   if (req.method !== "POST") {
-    res.writeHead(405, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Метод не разрешён" }));
-    return;
+    return res.writeHead(405, { "Content-Type": "application/json" })
+              .end(JSON.stringify({ error: "Метод не разрешён" }));
   }
 
   let body = "";
@@ -34,17 +31,15 @@ export default async function handler(req, res) {
       const { question, telegramId, mode } = JSON.parse(body);
 
       if (!question || !telegramId) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Вопрос или telegramId не указан" }));
-        return;
+        return res.writeHead(400, { "Content-Type": "application/json" })
+                  .end(JSON.stringify({ error: "Вопрос или telegramId не указан" }));
       }
 
       const now = Date.now();
       const last = userTimestamps.get(telegramId) || 0;
       if (now - last < RATE_LIMIT_MS) {
-        res.writeHead(429, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Слишком часто. Подожди пару секунд." }));
-        return;
+        return res.writeHead(429, { "Content-Type": "application/json" })
+                  .end(JSON.stringify({ error: "Слишком часто. Подожди пару секунд." }));
       }
       userTimestamps.set(telegramId, now);
 
