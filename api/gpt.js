@@ -8,22 +8,32 @@ const RATE_LIMIT_MS = 10 * 1000;
 const userTimestamps = new Map();
 
 export default async function handler(req, res) {
-  // ✅ CORS
-  res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  const allowedOrigin = "https://go-travel-frontend.vercel.app";
 
+  // ✅ Preflight (OPTIONS) — сразу отдаем все заголовки
   if (req.method === "OPTIONS") {
-    res.writeHead(200);
+    res.writeHead(200, {
+      "Access-Control-Allow-Origin": allowedOrigin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    });
     res.end();
     return;
   }
 
+  // ❌ Только POST
   if (req.method !== "POST") {
-    res.writeHead(405, { "Content-Type": "application/json" });
+    res.writeHead(405, {
+      "Access-Control-Allow-Origin": allowedOrigin,
+      "Content-Type": "application/json"
+    });
     res.end(JSON.stringify({ error: "Метод не разрешён" }));
     return;
   }
+
+  // ✅ Для POST добавляем CORS
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Content-Type", "application/json");
 
   let body = "";
   req.on("data", chunk => (body += chunk));
@@ -32,7 +42,7 @@ export default async function handler(req, res) {
       const { question, telegramId, mode } = JSON.parse(body);
 
       if (!question || !telegramId) {
-        res.writeHead(400, { "Content-Type": "application/json" });
+        res.writeHead(400);
         res.end(JSON.stringify({ error: "Вопрос или telegramId не указан" }));
         return;
       }
@@ -40,7 +50,7 @@ export default async function handler(req, res) {
       const now = Date.now();
       const last = userTimestamps.get(telegramId) || 0;
       if (now - last < RATE_LIMIT_MS) {
-        res.writeHead(429, { "Content-Type": "application/json" });
+        res.writeHead(429);
         res.end(JSON.stringify({ error: "Слишком часто. Подожди пару секунд." }));
         return;
       }
@@ -72,11 +82,11 @@ export default async function handler(req, res) {
         timestamp: new Date().toISOString()
       });
 
-      res.writeHead(200, { "Content-Type": "application/json" });
+      res.writeHead(200);
       res.end(JSON.stringify({ answer }));
     } catch (err) {
       console.error("🔥 GPT Error:", err.stack || err);
-      res.writeHead(500, { "Content-Type": "application/json" });
+      res.writeHead(500);
       res.end(JSON.stringify({ error: "Ошибка ChatGPT" }));
     }
   });
