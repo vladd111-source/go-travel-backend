@@ -1,9 +1,7 @@
 import { OpenAI } from "openai";
 import { createClient } from "@supabase/supabase-js";
 
-// ❗️Временно вставлен API-ключ, позже замени на process.env
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
@@ -49,6 +47,8 @@ export default async function handler(req, res) {
 
   try {
     const raw = await readBody(req);
+    console.log("📦 RAW BODY:", raw); // 👈 логируем тело
+
     if (!raw?.trim()) {
       res.writeHead(400);
       res.end(JSON.stringify({ error: "Пустое тело запроса" }));
