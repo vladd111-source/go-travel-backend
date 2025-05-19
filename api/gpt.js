@@ -1,7 +1,8 @@
 import { OpenAI } from "openai";
 import { createClient } from "@supabase/supabase-js";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// ✅ Временно вставь API ключ напрямую (потом уберёшь)
+const openai = new OpenAI({ apiKey: "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" }); // ❗️Проверь здесь
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const RATE_LIMIT_MS = 10 * 1000;
@@ -19,7 +20,6 @@ async function readBody(req) {
 export default async function handler(req, res) {
   const allowedOrigin = "https://go-travel-frontend.vercel.app";
 
-  // ✅ Preflight (OPTIONS)
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": allowedOrigin,
@@ -30,7 +30,6 @@ export default async function handler(req, res) {
     return;
   }
 
-  // ❌ Только POST
   if (req.method !== "POST") {
     res.writeHead(405, {
       "Access-Control-Allow-Origin": allowedOrigin,
@@ -40,16 +39,13 @@ export default async function handler(req, res) {
     return;
   }
 
-  // ✅ Заголовки CORS для POST
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Content-Type", "application/json");
 
   try {
     const raw = await readBody(req);
-    console.log("📦 RAW BODY:", raw); // 👈 лог тела запроса
-
-    if (!raw || raw.trim() === "") {
+    if (!raw?.trim()) {
       res.writeHead(400);
       res.end(JSON.stringify({ error: "Пустое тело запроса" }));
       return;
@@ -58,13 +54,14 @@ export default async function handler(req, res) {
     let payload;
     try {
       payload = JSON.parse(raw);
-    } catch (e) {
+    } catch {
       res.writeHead(400);
       res.end(JSON.stringify({ error: "Невалидный JSON" }));
       return;
     }
 
     const { question, telegramId, mode } = payload;
+    console.log("🧠 GPT INPUT:", { question, telegramId, mode });
 
     if (!question || !telegramId) {
       res.writeHead(400);
@@ -88,8 +85,7 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content:
-            "Ты — тревел-ассистент Go Travel. Пиши живо, как местный житель. Давай советы, эмоции, короткие маршруты."
+          content: "Ты — тревел-ассистент Go Travel. Пиши живо, как местный житель. Давай советы, эмоции, короткие маршруты."
         },
         { role: "user", content: question }
       ],
@@ -110,7 +106,7 @@ export default async function handler(req, res) {
     res.writeHead(200);
     res.end(JSON.stringify({ answer }));
   } catch (err) {
-    console.error("🔥 GPT Error:", err.stack || err.message || err);
+    console.error("🔥 GPT Ошибка:", err.response?.data || err.stack || err.message);
     res.writeHead(500);
     res.end(JSON.stringify({ error: "Ошибка ChatGPT" }));
   }
