@@ -7,7 +7,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const RATE_LIMIT_MS = 10 * 1000;
 const userTimestamps = new Map();
 
-// ✅ функция для чтения тела запроса
+// ✅ Удобная функция чтения тела запроса
 async function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
   // ✅ Preflight (OPTIONS)
   if (req.method === "OPTIONS") {
-    res.writeHead(200, {
+    res.writeHead(204, {
       "Access-Control-Allow-Origin": allowedOrigin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
@@ -41,13 +41,15 @@ export default async function handler(req, res) {
     return;
   }
 
-  // ✅ CORS для POST
+  // ✅ Заголовки CORS для POST
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Content-Type", "application/json");
 
   try {
     const raw = await readBody(req);
+    if (!raw) throw new Error("Пустое тело запроса");
+
     const { question, telegramId, mode } = JSON.parse(raw);
 
     if (!question || !telegramId) {
@@ -94,7 +96,7 @@ export default async function handler(req, res) {
     res.writeHead(200);
     res.end(JSON.stringify({ answer }));
   } catch (err) {
-    console.error("🔥 GPT Error:", err.stack || err);
+    console.error("🔥 GPT Error:", err.stack || err.message || err);
     res.writeHead(500);
     res.end(JSON.stringify({ error: "Ошибка ChatGPT" }));
   }
