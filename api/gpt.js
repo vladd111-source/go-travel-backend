@@ -1,9 +1,15 @@
 import { OpenAI } from "openai";
 import { createClient } from "@supabase/supabase-js";
 
-// ✅ Временно вставь API ключ напрямую (потом уберёшь)
-const openai = new OpenAI({ apiKey: "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" }); // ❗️Проверь здесь
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// ❗️Временно вставлен API-ключ, позже замени на process.env
+const openai = new OpenAI({
+  apiKey: "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"
+});
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
 const RATE_LIMIT_MS = 10 * 1000;
 const userTimestamps = new Map();
@@ -85,7 +91,8 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content: "Ты — тревел-ассистент Go Travel. Пиши живо, как местный житель. Давай советы, эмоции, короткие маршруты."
+          content:
+            "Ты — тревел-ассистент Go Travel. Пиши живо, как местный житель. Давай советы, эмоции, короткие маршруты."
         },
         { role: "user", content: question }
       ],
@@ -106,7 +113,7 @@ export default async function handler(req, res) {
     res.writeHead(200);
     res.end(JSON.stringify({ answer }));
   } catch (err) {
-    console.error("🔥 GPT Ошибка:", err.response?.data || err.stack || err.message);
+    console.error("🔥 GPT Ошибка:", err?.response?.data || err?.stack || err?.message || err);
     res.writeHead(500);
     res.end(JSON.stringify({ error: "Ошибка ChatGPT" }));
   }
