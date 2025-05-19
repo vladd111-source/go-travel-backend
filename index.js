@@ -1,6 +1,7 @@
 import http from "http";
 import hotelHandler from './api/hotels.js';
 import gptHandler from './api/gpt.js';
+import placesHandler from './api/places.js'; // 👈 добавь
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
