@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ answer }));
     } catch (err) {
-      console.error("GPT Error:", err);
+      console.error("🔥 GPT Error:", err.stack || err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Ошибка ChatGPT" }));
     }
