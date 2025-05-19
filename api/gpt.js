@@ -2,9 +2,7 @@ import { OpenAI } from "openai";
 import { createClient } from "@supabase/supabase-js";
 
 // ❗️Временно вставлен API-ключ, позже замени на process.env
-const openai = new OpenAI({
-  apiKey: "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"
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
