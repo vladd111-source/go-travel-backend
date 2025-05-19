@@ -8,7 +8,7 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === "/api/hotels") {
     hotelHandler(req, res);
-  } else if (url.pathname === "/api/ask-gpt") {
+  } else if (url.pathname === "/api/gpt") {
     gptHandler(req, res);
   } else if (url.pathname === "/api/places") {
     placesHandler(req, res); // 👈 добавил вызов
