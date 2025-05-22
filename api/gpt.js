@@ -7,8 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-const RATE_LIMIT_MS = 10 * 1000;
-const userTimestamps = new Map();
+// const RATE_LIMIT_MS = 10 * 1000;
+// const userTimestamps = new Map();
 
 async function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
 
   try {
     const raw = await readBody(req);
-    console.log("📦 RAW BODY:", raw); // 👈 логируем тело
+    console.log("📦 RAW BODY:", raw);
 
     if (!raw?.trim()) {
       res.writeHead(400);
@@ -73,14 +73,15 @@ export default async function handler(req, res) {
       return;
     }
 
-    const now = Date.now();
-    const last = userTimestamps.get(telegramId) || 0;
-    if (now - last < RATE_LIMIT_MS) {
-      res.writeHead(429);
-      res.end(JSON.stringify({ error: "Слишком часто. Подожди пару секунд." }));
-      return;
-    }
-    userTimestamps.set(telegramId, now);
+    // 🔓 Rate limit отключён
+    // const now = Date.now();
+    // const last = userTimestamps.get(telegramId) || 0;
+    // if (now - last < RATE_LIMIT_MS) {
+    //   res.writeHead(429);
+    //   res.end(JSON.stringify({ error: "Слишком часто. Подожди пару секунд." }));
+    //   return;
+    // }
+    // userTimestamps.set(telegramId, now);
 
     const selectedModel = mode === "pro" ? "gpt-4" : "gpt-3.5-turbo";
 
