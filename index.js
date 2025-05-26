@@ -1,7 +1,6 @@
 import http from "http";
 import hotelHandler from './api/hotels.js';
 import gptHandler from './api/gpt.js';
-//import placesHandler from './api/places.js';
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -10,8 +9,6 @@ const server = http.createServer((req, res) => {
     hotelHandler(req, res);
   } else if (url.pathname === "/api/gpt") {
     gptHandler(req, res);
-  } else if (url.pathname === "/api/places") {
-    placesHandler(req, res);
   } else {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not Found" }));
