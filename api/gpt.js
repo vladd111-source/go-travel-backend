@@ -2,13 +2,9 @@ import { OpenAI } from "openai";
 import { createClient } from "@supabase/supabase-js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// const RATE_LIMIT_MS = 10 * 1000;
-// const userTimestamps = new Map();
+const allowedOrigin = "https://go-travel-frontend.vercel.app";
 
 async function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -20,30 +16,23 @@ async function readBody(req) {
 }
 
 export default async function handler(req, res) {
-  const allowedOrigin = "https://go-travel-frontend.vercel.app";
+  // ✅ Общие заголовки CORS
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Content-Type", "application/json");
 
   if (req.method === "OPTIONS") {
-    res.writeHead(204, {
-      "Access-Control-Allow-Origin": allowedOrigin,
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
-    });
+    res.writeHead(204);
     res.end();
     return;
   }
 
   if (req.method !== "POST") {
-    res.writeHead(405, {
-      "Access-Control-Allow-Origin": allowedOrigin,
-      "Content-Type": "application/json"
-    });
+    res.writeHead(405);
     res.end(JSON.stringify({ error: "Метод не разрешён" }));
     return;
   }
-
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Content-Type", "application/json");
 
   try {
     const raw = await readBody(req);
@@ -73,16 +62,6 @@ export default async function handler(req, res) {
       return;
     }
 
-    // 🔓 Rate limit отключён
-    // const now = Date.now();
-    // const last = userTimestamps.get(telegramId) || 0;
-    // if (now - last < RATE_LIMIT_MS) {
-    //   res.writeHead(429);
-    //   res.end(JSON.stringify({ error: "Слишком часто. Подожди пару секунд." }));
-    //   return;
-    // }
-    // userTimestamps.set(telegramId, now);
-
     const selectedModel = mode === "pro" ? "gpt-4" : "gpt-3.5-turbo";
 
     const chat = await openai.chat.completions.create({
@@ -101,6 +80,7 @@ export default async function handler(req, res) {
 
     const answer = chat.choices[0]?.message?.content || "Нет ответа.";
 
+    // 🔐 Сохраняем лог в Supabase
     await supabase.from("gpt_logs").insert({
       telegram_id: telegramId,
       question,
