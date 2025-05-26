@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     }
 
     const photo = data?.results?.[0];
-
+    console.log("📸 Unsplash response:", data); // Добавь это, чтобы видеть результат
     console.log("📸 Unsplash photo URL:", photo?.urls?.regular);
     console.log("🧑 Автор:", photo?.user?.name);
 
