@@ -1,11 +1,11 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const query = url.searchParams.get("query");
-  const accessKey = "vuhLL00i9Jyvcecx1V9vuj2Pd9P9bJvr3bcJaFRnH0k";
-
   try {
+    const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
+    const query = searchParams.get("query") || "travel";
+    const accessKey = "vuhLL00i9Jyvcecx1V9vuj2Pd9P9bJvr3bcJaFRnH0k";
+
     const apiUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=${accessKey}`;
     const r = await fetch(apiUrl);
     const data = await r.json();
