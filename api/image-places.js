@@ -11,6 +11,8 @@ export default async function handler(req, res) {
     const data = await r.json();
     const photo = data?.results?.[0];
 
+    console.log("📸 Unsplash photo URL:", photo?.urls?.regular); // 👉 ВОТ СЮДА
+
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
       url: photo?.urls?.regular || "https://placehold.co/300x180?text=No+Image"
