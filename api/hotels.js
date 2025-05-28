@@ -40,40 +40,41 @@ export default async function handler(req, res) {
       ? cacheData.filter(h => h.priceFrom > 0 && h.hotelId)
       : [];
 
-    if (hotelsRaw.length === 0) {
+    if (!hotelsRaw.length) {
       return res.status(200).json([]);
     }
 
-    const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
-
-    // 📸 Получаем photoIds
+    // 🖼 Подгружаем фото id
+    const hotelIds = hotelsRaw.map(h => String(h.hotelId)).join(",");
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
-    const photoJson = await photoRes.json(); // { hotelId: [photoId1, photoId2, ...] }
+    const photoJson = await photoRes.json();
 
-    // 🧱 Формируем итоговый массив
- const hotels = hotelsRaw.map(h => {
-  const hotelId = h.hotelId;
-  const fullPrice = h.priceFrom || 0;
+    // 🧱 Формируем итог
+    const hotels = hotelsRaw.map(h => {
+      const hotelId = h.hotelId;
+      const fullPrice = h.priceFrom || 0;
 
-  const photoList = photoJson[String(hotelId)];
-  const validPhotoId = Array.isArray(photoList) && photoList.length > 0 ? photoList.find(id => typeof id === "number" || /^\d+$/.test(id)) : null;
+      const photoList = photoJson[String(hotelId)];
+      const validPhotoId = Array.isArray(photoList)
+        ? photoList.find(id => typeof id === "number" || /^\d+$/.test(id))
+        : null;
 
-  const imageUrl = validPhotoId
-    ? `https://photo.hotellook.com/image_v2/limit/${validPhotoId}/800/520.auto`
-    : "https://placehold.co/800x520?text=No+Image";
+      const image = validPhotoId
+        ? `https://photo.hotellook.com/image_v2/limit/${validPhotoId}/800/520.auto`
+        : "https://placehold.co/800x520?text=No+Image";
 
-  return {
-    id: hotelId,
-    hotelId,
-    name: h.hotelName || h.name || "Без названия",
-    city: h.city || fallbackCity,
-    fullPrice,
-    pricePerNight: Math.floor(fullPrice / nights),
-    rating: h.rating || (h.stars ? h.stars * 2 : 0),
-    image: imageUrl
-  };
-});
+      return {
+        id: hotelId,
+        hotelId,
+        name: h.hotelName || h.name || "Без названия",
+        city: h.city || fallbackCity,
+        fullPrice,
+        pricePerNight: Math.floor(fullPrice / nights),
+        rating: h.rating || (h.stars ? h.stars * 2 : 0),
+        image
+      };
+    });
 
     return res.status(200).json(hotels);
   } catch (err) {
