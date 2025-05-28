@@ -1,6 +1,5 @@
 import fetch from "node-fetch";
 console.log("🔐 ENV UNSPLASH:", process.env.UNSPLASH_ACCESS_KEY);
-console.log("🧩 Все ENV:", process.env);
 
 export default async function handler(req, res) {
   try {
@@ -28,13 +27,21 @@ export default async function handler(req, res) {
     }
 
     const photo = data?.results?.[0];
-    const url = photo?.urls?.regular;
+    const url = photo?.urls?.regular || "https://placehold.co/300x180?text=No+Image";
 
-    console.log("📸 Найдено фото:", url || "❌ нет");
+    // 🔻 Удалить после модерации:
+    const author = photo?.user?.name || "Unknown";
+    const link = photo?.user?.links?.html || "https://unsplash.com";
+    const download = photo?.links?.download_location;
+
+    console.log("📸 Найдено фото:", url);
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
-      url: url || "https://placehold.co/300x180?text=No+Image"
+      url,
+      author,      // 🔻 удалить
+      link,        // 🔻 удалить
+      download     // 🔻 удалить
     }));
   } catch (e) {
     console.error("❌ Ошибка загрузки с Unsplash:", e.message);
