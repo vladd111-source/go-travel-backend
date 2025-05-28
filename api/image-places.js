@@ -1,4 +1,6 @@
 import fetch from "node-fetch";
+console.log("🔐 ENV UNSPLASH:", process.env.UNSPLASH_ACCESS_KEY);
+console.log("🧩 Все ENV:", process.env);
 
 export default async function handler(req, res) {
   try {
