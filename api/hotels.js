@@ -76,8 +76,8 @@ export default async function handler(req, res) {
       };
     });
 
-    // 🔍 Логируем для отладки
-    console.log("📸 Проверка фото:", hotels.map(h => ({
+    // 🧪 Логирование для отладки
+    console.log("📸 Проверка изображений:", hotels.map(h => ({
       name: h.name,
       id: h.hotelId,
       image: h.image
