@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       throw new Error("UNSPLASH_ACCESS_KEY is missing in environment variables");
     }
 
-    const apiUrl = https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=${accessKey};
+    const apiUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=${accessKey}`;
     console.log("🔍 Запрос к Unsplash:", apiUrl);
 
     const r = await fetch(apiUrl);
