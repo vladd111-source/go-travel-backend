@@ -1,9 +1,10 @@
 import fetch from "node-fetch";
 console.log("🔐 ENV UNSPLASH:", process.env.UNSPLASH_ACCESS_KEY);
+console.log("🧩 Все ENV:", process.env);
 
 export default async function handler(req, res) {
   try {
-    const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
+    const { searchParams } = new URL(req.url, http://${req.headers.host});
     const rawQuery = searchParams.get("query") || "travel";
 
     // 🧼 Очищаем запрос
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
       throw new Error("UNSPLASH_ACCESS_KEY is missing in environment variables");
     }
 
-    const apiUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=${accessKey}`;
+    const apiUrl = https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=${accessKey};
     console.log("🔍 Запрос к Unsplash:", apiUrl);
 
     const r = await fetch(apiUrl);
@@ -27,21 +28,13 @@ export default async function handler(req, res) {
     }
 
     const photo = data?.results?.[0];
-    const url = photo?.urls?.regular || "https://placehold.co/300x180?text=No+Image";
+    const url = photo?.urls?.regular;
 
-    // 🔻 Удалить после модерации:
-    const author = photo?.user?.name || "Unknown";
-    const link = photo?.user?.links?.html || "https://unsplash.com";
-    const download = photo?.links?.download_location;
-
-    console.log("📸 Найдено фото:", url);
+    console.log("📸 Найдено фото:", url || "❌ нет");
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
-      url,
-      author,      // 🔻 удалить
-      link,        // 🔻 удалить
-      download     // 🔻 удалить
+      url: url || "https://placehold.co/300x180?text=No+Image"
     }));
   } catch (e) {
     console.error("❌ Ошибка загрузки с Unsplash:", e.message);
