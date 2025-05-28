@@ -76,6 +76,14 @@ export default async function handler(req, res) {
       };
     });
 
+    console.log("📸 Проверка фото:", hotels.map(h => ({
+  name: h.name,
+  id: h.hotelId,
+  image: h.image
+})));
+
+return res.status(200).json(hotels);
+
     return res.status(200).json(hotels);
   } catch (err) {
     console.error("❌ Ошибка:", err.stack || err.message);
