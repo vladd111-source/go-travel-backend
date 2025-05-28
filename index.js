@@ -6,14 +6,14 @@ import imageHandler from "./api/image-places.js";
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  // ✅ Разрешённый фронтенд-домен
-  const allowedOrigin = "https://go-travel-frontend.vercel.app";
+  // ⛳ ВРЕМЕННОЕ РЕШЕНИЕ для отладки — потом верни allowedOrigin
+  const allowedOrigin = "*"; // ⬅️ ПОТОМ замени на "https://go-travel-frontend.vercel.app"
 
   // ✅ Установка CORS-заголовков
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Vary", "Origin"); // 🔐 важен для кэша CDN
+  res.setHeader("Vary", "Origin");
 
   // ✅ Обработка preflight (OPTIONS-запросов)
   if (req.method === "OPTIONS") {
