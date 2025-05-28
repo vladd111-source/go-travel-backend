@@ -3,9 +3,11 @@ import fetch from "node-fetch";
 export default async function handler(req, res) {
   try {
     const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
-    const rawQuery = searchParams.get("query") || "travel";
+    const rawQuery = searchParams.get("query") || "";
 
-    const query = rawQuery.replace(/[^\w\s-]/gi, "").trim();
+    // 🧼 Очищаем и проверяем запрос
+    let query = rawQuery.replace(/[^\w\s-]/gi, "").trim();
+    if (!query) query = "travel"; // 💡 Подстраховка
 
     const accessKey = process.env.UNSPLASH_ACCESS_KEY;
     if (!accessKey) throw new Error("Missing UNSPLASH_ACCESS_KEY");
