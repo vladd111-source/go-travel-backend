@@ -4,7 +4,7 @@ console.log("🧩 Все ENV:", process.env);
 
 export default async function handler(req, res) {
   try {
-    const { searchParams } = new URL(req.url, http://${req.headers.host});
+    const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
     const rawQuery = searchParams.get("query") || "travel";
 
     // 🧼 Очищаем запрос
