@@ -7,7 +7,12 @@ export default async function handler(req, res) {
 
     // 🧼 Очищаем запрос
     const query = rawQuery.replace(/[^\w\s-]/gi, "").trim();
-    const accessKey = "vuhLL00i9Jyvcecx1V9vuj2Pd9P9bJvr3bcJaFRnH0k";
+
+    // 🔐 Используем .env ключ
+    const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (!accessKey) {
+      throw new Error("UNSPLASH_ACCESS_KEY is missing in environment variables");
+    }
 
     const apiUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=${accessKey}`;
     console.log("🔍 Запрос к Unsplash:", apiUrl);
@@ -17,7 +22,7 @@ export default async function handler(req, res) {
 
     if (!r.ok) {
       console.warn("❌ Ошибка ответа от Unsplash:", r.status, data);
-      throw new Error("Unsplash error");
+      throw new Error("Unsplash API responded with error");
     }
 
     const photo = data?.results?.[0];
