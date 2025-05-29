@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
-    // 🔍 Получаем locationId
+    // 🔍 Get locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupJson = await lookupRes.json();
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-    // 📦 Загружаем отели с местами
+    // 📦 Get hotels
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheData = await cacheRes.json();
@@ -40,34 +40,20 @@ export default async function handler(req, res) {
       ? cacheData.filter(h => h.priceFrom > 0 && h.hotelId)
       : [];
 
-    if (!hotelsRaw.length) {
-      return res.status(200).json([]);
-    }
+    const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
 
-    // 🖼 Фото
-    const hotelIds = hotelsRaw.map(h => String(h.hotelId)).join(",");
+    // 📸 Get photo IDs
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
-    const photoJson = await photoRes.json();
+    const photoJson = await photoRes.json(); // { hotelId: [photoId1, photoId2, ...] }
 
-    // 🏗 Финальный массив
+    // 🧱 Final hotel data
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
       const fullPrice = h.priceFrom || 0;
-   const photoList = photoJson[String(hotelId)];
-const photoId = Array.isArray(photoList) && photoList.length > 0 ? photoList[0] : null;
+      const photos = Array.isArray(photoJson[String(hotelId)]) ? photoJson[String(hotelId)] : [];
+      const firstPhoto = photos[0];
 
-    
-image: photoId
-  ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
-  : "https://placehold.co/800x520?text=No+Image"
-
-
-       // Логирование
-  if (!photoId) {
-    console.warn(`⚠️ Фото не найдено для отеля ${h.hotelName} | ID: ${hotelId}`);
-  }
-      
       return {
         id: hotelId,
         hotelId,
@@ -76,16 +62,12 @@ image: photoId
         fullPrice,
         pricePerNight: Math.floor(fullPrice / nights),
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        image
+        image: firstPhoto
+          ? `https://photo.hotellook.com/image_v2/limit/${firstPhoto}/800/520.auto`
+          : "https://placehold.co/800x520?text=No+Image",
+        photos: photos.map(photoId => `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`)
       };
     });
-
-    // 🔍 Отладка
-    console.log("📸 Фото:", hotels.map(h => ({
-      name: h.name,
-      id: h.hotelId,
-      image: h.image
-    })));
 
     return res.status(200).json(hotels);
   } catch (err) {
