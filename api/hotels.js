@@ -54,14 +54,13 @@ export default async function handler(req, res) {
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
       const fullPrice = h.priceFrom || 0;
-      const photoList = photoJson[String(hotelId)];
-      const photoId = Array.isArray(photoList) && photoList.length
-        ? photoList.find(id => typeof id === "number" || /^\d+$/.test(id))
-        : null;
+   const photoList = photoJson[String(hotelId)];
+const photoId = Array.isArray(photoList) && photoList.length > 0 ? photoList[0] : null;
 
-      const image = photoId
-        ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
-        : "https://placehold.co/800x520?text=No+Image";
+    
+image: photoId
+  ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
+  : "https://placehold.co/800x520?text=No+Image"
 
 
        // Логирование
