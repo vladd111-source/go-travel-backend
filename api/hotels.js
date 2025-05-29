@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") return res.status(200).end(); // Preflight
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
     const { city = "Paris", checkIn, checkOut } = req.query;
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-    // 📦 Получаем отели с местами
+    // 📦 Отели
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheData = await cacheRes.json();
@@ -44,17 +44,16 @@ export default async function handler(req, res) {
       return res.status(200).json([]);
     }
 
-    // 🖼 Получаем id фото отелей
+    // 🖼 Фото ID
     const hotelIds = hotelsRaw.map(h => String(h.hotelId)).join(",");
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
     const photoJson = await photoRes.json();
 
-    // 🧱 Сборка финального списка отелей
+    // 🏗 Финальный список
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
       const fullPrice = h.priceFrom || 0;
-
       const photoList = photoJson[String(hotelId)];
       const photoId = Array.isArray(photoList) && photoList.length
         ? photoList.find(id => typeof id === "number" || /^\d+$/.test(id))
@@ -76,8 +75,8 @@ export default async function handler(req, res) {
       };
     });
 
-    // 🧪 Логирование для отладки
-    console.log("📸 Проверка изображений:", hotels.map(h => ({
+    // 🔎 Debug
+    console.log("📸 Изображения:", hotels.map(h => ({
       name: h.name,
       id: h.hotelId,
       image: h.image
