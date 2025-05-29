@@ -63,6 +63,12 @@ export default async function handler(req, res) {
         ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
         : "https://placehold.co/800x520?text=No+Image";
 
+
+       // Логирование
+  if (!photoId) {
+    console.warn(`⚠️ Фото не найдено для отеля ${h.hotelName} | ID: ${hotelId}`);
+  }
+      
       return {
         id: hotelId,
         hotelId,
