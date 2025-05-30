@@ -5,7 +5,9 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "OPTIONS") {
+    return res.status(200).end(); // Preflight
+  }
 
   try {
     const { city = "Paris", checkIn, checkOut } = req.query;
@@ -17,7 +19,7 @@ export default async function handler(req, res) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
-    // 🔍 Get locationId
+    // 🔍 Определяем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupJson = await lookupRes.json();
@@ -31,7 +33,7 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-    // 📦 Get hotels
+    // 📦 Получаем отели с местами
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheData = await cacheRes.json();
@@ -42,17 +44,17 @@ export default async function handler(req, res) {
 
     const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
 
-    // 📸 Get photo IDs
+    // 🖼 Получаем photo_id по hotelId
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
     const photoJson = await photoRes.json(); // { hotelId: [photoId1, photoId2, ...] }
 
-    // 🧱 Final hotel data
+    // 🧱 Собираем финальный список отелей
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
       const fullPrice = h.priceFrom || 0;
-      const photos = Array.isArray(photoJson[String(hotelId)]) ? photoJson[String(hotelId)] : [];
-      const firstPhoto = photos[0];
+      const photos = photoJson[String(hotelId)] || [];
+      const photoId = photos.length > 0 ? photos[0] : null;
 
       return {
         id: hotelId,
@@ -62,10 +64,9 @@ export default async function handler(req, res) {
         fullPrice,
         pricePerNight: Math.floor(fullPrice / nights),
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        image: firstPhoto
-          ? `https://photo.hotellook.com/image_v2/limit/${firstPhoto}/800/520.auto`
-          : "https://placehold.co/800x520?text=No+Image",
-        photos: photos.map(photoId => `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`)
+        image: photoId
+          ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
+          : "https://via.placeholder.com/800x520?text=No+Image"
       };
     });
 
