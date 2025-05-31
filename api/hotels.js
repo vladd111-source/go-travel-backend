@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     const lookupRes = await fetch(lookupUrl);
     const lookupJson = await lookupRes.json();
 
-    console.log("📍 Location lookup result:", lookupJson);
+    console.log("📍 Location lookup result:", JSON.stringify(lookupJson, null, 2));
 
     const location = lookupJson?.results?.locations?.[0];
 
