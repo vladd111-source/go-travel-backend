@@ -65,7 +65,10 @@ export default async function handler(req, res) {
       const fullPrice = h.priceFrom || 0;
       const photos = photoJson[String(hotelId)] || [];
       const photoId = photos.length > 0 ? photos[0] : null;
-
+      
+  // 🧪 ЛОГ photoId
+  console.log(`🖼 ${hotelId}: photoId =`, photoId);
+      
       return {
         id: hotelId,
         hotelId,
