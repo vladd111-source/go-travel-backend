@@ -23,9 +23,13 @@ export default async function handler(req, res) {
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupJson = await lookupRes.json();
+
+    console.log("📍 Location lookup result:", lookupJson);
+
     const location = lookupJson?.results?.locations?.[0];
 
     if (!location?.id) {
+      console.warn(`❌ Локация не найдена: ${city}`);
       return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
     }
 
@@ -38,9 +42,13 @@ export default async function handler(req, res) {
     const cacheRes = await fetch(cacheUrl);
     const cacheData = await cacheRes.json();
 
+    console.log("🏨 Raw hotel cache data length:", Array.isArray(cacheData) ? cacheData.length : 'Invalid cacheData');
+
     const hotelsRaw = Array.isArray(cacheData)
       ? cacheData.filter(h => h.priceFrom > 0 && h.hotelId)
       : [];
+
+    console.log("✅ Filtered hotel list length:", hotelsRaw.length);
 
     const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
 
@@ -48,6 +56,8 @@ export default async function handler(req, res) {
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
     const photoJson = await photoRes.json(); // { hotelId: [photoId1, photoId2, ...] }
+
+    console.log("🖼 Photo JSON keys count:", Object.keys(photoJson).length);
 
     // 🧱 Собираем финальный список отелей
     const hotels = hotelsRaw.map(h => {
@@ -64,11 +74,13 @@ export default async function handler(req, res) {
         fullPrice,
         pricePerNight: Math.floor(fullPrice / nights),
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
-image: photoId
-  ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`
-  : "https://via.placeholder.com/800x520?text=No+Image"
+        image: photoId
+          ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`
+          : "https://via.placeholder.com/800x520?text=No+Image"
       };
     });
+
+    console.log("📦 Final hotels count:", hotels.length);
 
     return res.status(200).json(hotels);
   } catch (err) {
