@@ -64,9 +64,9 @@ export default async function handler(req, res) {
         fullPrice,
         pricePerNight: Math.floor(fullPrice / nights),
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        image: photoId
-          ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.auto`
-          : "https://via.placeholder.com/800x520?text=No+Image"
+image: photoId
+  ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`
+  : "https://via.placeholder.com/800x520?text=No+Image"
       };
     });
 
