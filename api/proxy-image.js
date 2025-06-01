@@ -8,7 +8,9 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const { photoId } = req.query;
-
+  
+  console.log("📸 Запрос на image-proxy. photoId =", photoId); // 👈 Добавь сюда
+  
   if (!photoId) {
     return res.status(400).send("❌ photoId is required");
   }
