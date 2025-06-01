@@ -1,14 +1,15 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  const path = req.url.split("/api/image-proxy/")[1];
+  const { photoId } = req.query;
+  const path = Array.isArray(photoId) ? photoId.join("/") : photoId;
 
   if (!path) {
     return res.status(400).send("❌ path is required");
   }
 
   const imageUrl = `https://photo.hotellook.com/image_v2/limit/${path}`;
-  console.log("📸 Proxying to:", imageUrl);
+  console.log("📸 Proxying:", imageUrl);
 
   try {
     const response = await fetch(imageUrl);
