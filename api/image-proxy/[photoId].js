@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  const { photoId } = req.query; // массив из [...photoId]
+  const { photoId } = req.query; // Catch-all — массив
   const path = Array.isArray(photoId) ? photoId.join("/") : photoId;
 
   if (!path) {
@@ -9,19 +9,20 @@ export default async function handler(req, res) {
   }
 
   const imageUrl = `https://photo.hotellook.com/image_v2/limit/${path}`;
-  console.log("📸 Проксируем:", imageUrl);
+  console.log("📸 Proxy to:", imageUrl);
 
   try {
     const response = await fetch(imageUrl);
+
     if (!response.ok) {
-      return res.status(response.status).send(`❌ Не удалось получить изображение: ${response.statusText}`);
+      return res.status(response.status).send(`❌ Failed to fetch: ${response.statusText}`);
     }
 
     res.setHeader("Content-Type", response.headers.get("content-type") || "image/jpeg");
     const buffer = await response.arrayBuffer();
     res.status(200).send(Buffer.from(buffer));
   } catch (error) {
-    console.error("❌ Ошибка прокси:", error.message);
-    res.status(500).send("❌ Ошибка сервера при загрузке изображения");
+    console.error("❌ Proxy error:", error.message);
+    res.status(500).send("❌ Proxy internal error");
   }
 }
