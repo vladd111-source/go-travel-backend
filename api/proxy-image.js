@@ -17,7 +17,9 @@ export default async function handler(req, res) {
 
   try {
     // 💡 Здесь photoId — это всё после `/limit/`
-  const imageUrl = `https://photo.hotellook.com/image_v2/limit/${photoId}`; // <-- без /800/520.jpg
+  const imageUrl = photoId.includes("/")
+  ? `https://photo.hotellook.com/image_v2/limit/${photoId}`
+  : `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`;
     const response = await fetch(imageUrl);
 
     if (!response.ok) {
