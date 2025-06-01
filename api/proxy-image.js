@@ -15,8 +15,8 @@ export default async function handler(req, res) {
       return res.status(response.status).send(`❌ Не удалось получить изображение: ${response.statusText}`);
     }
 
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", response.headers.get("content-type") || "image/jpeg");
-    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=59");
 
     const buffer = await response.arrayBuffer();
     res.status(200).send(Buffer.from(buffer));
