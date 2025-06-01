@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  const { photoId } = req.query; // Catch-all — массив
+  const { photoId } = req.query;
   const path = Array.isArray(photoId) ? photoId.join("/") : photoId;
 
   if (!path) {
@@ -13,7 +13,6 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(imageUrl);
-
     if (!response.ok) {
       return res.status(response.status).send(`❌ Failed to fetch: ${response.statusText}`);
     }
