@@ -80,6 +80,7 @@ export default async function handler(req, res) {
     });
 
     console.log("📦 Final hotels count:", hotels.length);
+    console.log("🧾 Первый отель:", JSON.stringify(hotels[0], null, 2)); // <-- вот она
     console.log("📤 Отправка JSON:", JSON.stringify(hotels.slice(0, 1), null, 2)); // log 1-й отель
 
     return res.status(200).json(hotels);
