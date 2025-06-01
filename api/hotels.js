@@ -1,8 +1,5 @@
 import fetch from "node-fetch";
 
-// ⚠️ Фильтрацию временно отключаем — чтобы не потерять фото
-// const PLACEHOLDER_IDS = ["69540", "92820"];
-
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
@@ -20,11 +17,10 @@ export default async function handler(req, res) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
-    // 📍 Получение locationId
+    // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupJson = await lookupRes.json();
-
     console.log("📍 Location lookup result:", JSON.stringify(lookupJson, null, 2));
 
     const location = lookupJson?.results?.locations?.[0];
@@ -37,11 +33,10 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-    // 📦 Получение списка отелей
+    // 📦 Получаем отели
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
     const cacheData = await cacheRes.json();
-
     console.log("🏨 Raw hotel cache data length:", Array.isArray(cacheData) ? cacheData.length : "Invalid");
 
     const hotelsRaw = Array.isArray(cacheData)
@@ -52,14 +47,13 @@ export default async function handler(req, res) {
 
     const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
 
-    // 🖼 Получение фото
+    // 🖼 Получаем фото
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
     const photoJson = await photoRes.json();
-
     console.log("🖼 Photo JSON keys count:", Object.keys(photoJson).length);
 
-    // 🧱 Финальный список отелей
+    // 🧱 Сбор финального списка
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
       const fullPrice = h.priceFrom || 0;
@@ -67,7 +61,11 @@ export default async function handler(req, res) {
       const photos = photoJson[String(hotelId)] || [];
       const photoId = photos.length > 0 ? photos[0] : null;
 
-      console.log(`🖼 ${hotelId}: photoId =`, photoId);
+      const imageUrl = photoId
+        ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`
+        : "https://via.placeholder.com/800x520?text=No+Image";
+
+      console.log(`🖼 ${hotelId}: image = ${imageUrl}`);
 
       return {
         id: hotelId,
@@ -77,13 +75,12 @@ export default async function handler(req, res) {
         fullPrice,
         pricePerNight: Math.floor(fullPrice / nights),
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        image: photoId
-          ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`
-          : "https://via.placeholder.com/800x520?text=No+Image"
+        image: imageUrl
       };
     });
 
     console.log("📦 Final hotels count:", hotels.length);
+    console.log("📤 Отправка JSON:", JSON.stringify(hotels.slice(0, 1), null, 2)); // log 1-й отель
 
     return res.status(200).json(hotels);
   } catch (err) {
