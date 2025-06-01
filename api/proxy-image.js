@@ -8,20 +8,19 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const { photoId } = req.query;
-  console.log("📸 Запрос на image-proxy. photoId =", photoId);
+  console.log("📸 Запрос на image-proxy. photoId (base64) =", photoId);
 
   if (!photoId) {
     return res.status(400).send("❌ photoId is required");
   }
 
   try {
-    // ✅ добавляем размеры ТОЛЬКО если их нет
-    const imageUrl = photoId.includes("/")
-      ? `https://photo.hotellook.com/image_v2/limit/${photoId}`
-      : `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`;
+    // 📦 Декодируем из base64
+    const decodedPath = Buffer.from(photoId, "base64").toString("utf8");
+    const imageUrl = `https://photo.hotellook.com/image_v2/limit/${decodedPath}`;
+    console.log("🔗 Финальный imageUrl:", imageUrl);
 
     const response = await fetch(imageUrl);
-
     if (!response.ok) {
       return res.status(response.status).send(`❌ Не удалось получить изображение: ${response.statusText}`);
     }
