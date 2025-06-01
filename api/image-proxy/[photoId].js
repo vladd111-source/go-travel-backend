@@ -1,24 +1,21 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") return res.status(200).end();
-
   const { photoId } = req.query;
 
-  if (!photoId || typeof photoId !== "string") {
+  // Если photoId — массив (из-за вложенного пути), собираем
+  const fullPath = Array.isArray(photoId) ? photoId.join("/") : photoId;
+
+  console.log("📸 Запрос на image-proxy. fullPath =", fullPath);
+
+  if (!fullPath) {
     return res.status(400).send("❌ photoId is required");
   }
 
   try {
-    const decoded = Buffer.from(photoId, "base64").toString("utf8");
-    const imageUrl = `https://photo.hotellook.com/image_v2/limit/${decoded}`;
-    console.log("📸 imageUrl =", imageUrl);
-
+    const imageUrl = `https://photo.hotellook.com/image_v2/limit/${fullPath}`;
     const response = await fetch(imageUrl);
+
     if (!response.ok) {
       return res.status(response.status).send(`❌ Не удалось получить изображение: ${response.statusText}`);
     }
@@ -27,7 +24,7 @@ export default async function handler(req, res) {
     const buffer = await response.arrayBuffer();
     res.status(200).send(Buffer.from(buffer));
   } catch (err) {
-    console.error("❌ Ошибка:", err.message);
+    console.error("❌ Ошибка прокси:", err.message);
     res.status(500).send("❌ Ошибка сервера при загрузке изображения");
   }
 }
