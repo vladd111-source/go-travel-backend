@@ -16,18 +16,18 @@ export default async function handler(req, res) {
   try {
     const decoded = Buffer.from(photoId, "base64").toString("utf8");
     const imageUrl = `https://photo.hotellook.com/image_v2/limit/${decoded}`;
-    console.log("📸 imageUrl:", imageUrl);
+    console.log("📸 imageUrl =", imageUrl);
 
     const response = await fetch(imageUrl);
     if (!response.ok) {
-      return res.status(response.status).send(`❌ Ошибка получения: ${response.statusText}`);
+      return res.status(response.status).send(`❌ Не удалось получить изображение: ${response.statusText}`);
     }
 
     res.setHeader("Content-Type", response.headers.get("content-type") || "image/jpeg");
     const buffer = await response.arrayBuffer();
     res.status(200).send(Buffer.from(buffer));
   } catch (err) {
-    console.error("❌ Ошибка прокси:", err.message);
-    res.status(500).send("❌ Ошибка проксирования изображения");
+    console.error("❌ Ошибка:", err.message);
+    res.status(500).send("❌ Ошибка сервера при загрузке изображения");
   }
 }
