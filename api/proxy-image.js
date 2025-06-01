@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
   try {
     // 💡 Здесь photoId — это всё после `/limit/`
-    const imageUrl = `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`;
+    const imageUrl = `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`; // ✅ фикс тут
     const response = await fetch(imageUrl);
 
     if (!response.ok) {
