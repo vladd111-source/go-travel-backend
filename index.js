@@ -6,32 +6,33 @@ import imageHandler from "./api/image-places.js";
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  // ⛳ ВРЕМЕННОЕ РЕШЕНИЕ для отладки — потом верни allowedOrigin
-  const allowedOrigin = "*"; // ⬅️ ПОТОМ замени на "https://go-travel-frontend.vercel.app"
+  const allowedOrigin = "*";
 
-  // ✅ Установка CORS-заголовков
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Vary", "Origin");
 
-  // ✅ Обработка preflight (OPTIONS-запросов)
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
     return;
   }
 
-  // ✅ Основная маршрутизация
   if (url.pathname === "/api/hotels") {
     hotelHandler(req, res);
   } else if (url.pathname === "/api/gpt") {
     gptHandler(req, res);
   } else if (url.pathname === "/api/image") {
     imageHandler(req, res);
-   } else if (url.pathname.startsWith("/api/image-proxy/")) {
-    const proxyHandler = await import('./api/proxy-image.js');
-    proxyHandler.default(req, res);
+  } else if (url.pathname.startsWith("/api/image-proxy/")) {
+    import('./api/proxy-image.js').then((proxyHandler) => {
+      proxyHandler.default(req, res);
+    }).catch((err) => {
+      console.error("❌ Ошибка импорта proxy-image:", err.message);
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("❌ Internal server error");
+    });
   } else {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not Found" }));
