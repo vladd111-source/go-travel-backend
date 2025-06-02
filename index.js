@@ -29,6 +29,9 @@ const server = http.createServer((req, res) => {
     gptHandler(req, res);
   } else if (url.pathname === "/api/image") {
     imageHandler(req, res);
+   } else if (url.pathname.startsWith("/api/image-proxy/")) {
+    const proxyHandler = await import('./api/proxy-image.js');
+    proxyHandler.default(req, res);
   } else {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not Found" }));
