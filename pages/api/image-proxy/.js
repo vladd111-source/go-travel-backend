@@ -1,8 +1,8 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  const { photoId } = req.query;
-  const path = Array.isArray(photoId) ? photoId.join("/") : photoId;
+  // Вырезаем часть после /api/image-proxy/
+  const path = req.url.replace(/^\/api\/image-proxy\//, "");
 
   if (!path) {
     return res.status(400).send("❌ path is required");
