@@ -7,29 +7,33 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
- const { photoId } = req.query;
-const fullPath = Array.isArray(photoId) ? photoId.join("/") : photoId;
+  const match = req.url.match(/\/api\/image-proxy\/(.+)/);
+  const photoPath = match?.[1];
 
-  if (!photoId) {
-    return res.status(400).send("❌ photoId is required");
+  if (!photoPath) {
+    return res.status(400).send("❌ photoPath is required");
   }
 
-  try {
-    // 📦 Декодируем из base64
-    const decodedPath = Buffer.from(photoId, "base64").toString("utf8");
-    const imageUrl = `https://photo.hotellook.com/image_v2/limit/${decodedPath}`;
-    console.log("🔗 Финальный imageUrl:", imageUrl);
+  const imageUrl = `https://photo.hotellook.com/image_v2/limit/${photoPath}`;
+  console.log("📸 Проксируем:", imageUrl);
 
+  try {
     const response = await fetch(imageUrl);
+
     if (!response.ok) {
-      return res.status(response.status).send(`❌ Не удалось получить изображение: ${response.statusText}`);
+      return res
+        .status(response.status)
+        .send(`❌ Не удалось получить изображение: ${response.statusText}`);
     }
 
-    res.setHeader("Content-Type", response.headers.get("content-type") || "image/jpeg");
+    res.setHeader(
+      "Content-Type",
+      response.headers.get("content-type") || "image/jpeg"
+    );
     const buffer = await response.arrayBuffer();
-    res.status(200).send(Buffer.from(buffer));
-  } catch (error) {
-    console.error("❌ Ошибка прокси:", error.message);
-    res.status(500).send("❌ Ошибка сервера при загрузке изображения");
+    res.status(200).end(Buffer.from(buffer));
+  } catch (err) {
+    console.error("❌ Proxy error:", err.message);
+    res.status(500).send("❌ Proxy failure");
   }
 }
