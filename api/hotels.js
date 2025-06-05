@@ -42,16 +42,36 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-  // 📦 Получаем отели
+// 📦 Получаем отели (с проверкой доступности)
 const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
 const cacheRes = await fetch(cacheUrl);
 const cacheData = await cacheRes.json();
-console.log("🏨 Raw hotel cache data length:", Array.isArray(cacheData) ? cacheData.length : "Invalid");
 
 const hotelsRaw = Array.isArray(cacheData)
   ? cacheData.filter(h => h.priceFrom > 0 && h.hotelId)
   : [];
 
+console.log("✅ Предварительно отфильтровано отелей:", hotelsRaw.length);
+
+// 🛏 Проверка на наличие доступных предложений
+const availableHotels = [];
+
+for (const hotel of hotelsRaw) {
+  try {
+    const detailsUrl = `https://engine.hotellook.com/api/v2/hotelDetails.json?hotelId=${hotel.hotelId}&checkIn=${checkIn}&checkOut=${checkOut}&token=${token}&marker=${marker}`;
+    const detailsRes = await fetch(detailsUrl);
+    const detailsJson = await detailsRes.json();
+
+    if (detailsJson && detailsJson.bestOffer) {
+      availableHotels.push(hotel);
+    }
+  } catch (e) {
+    console.warn(`⚠️ Ошибка при проверке отеля ${hotel.hotelId}:`, e.message);
+  }
+}
+
+console.log("✅ Отелей с доступными номерами:", availableHotels.length);
+    
     console.log("✅ Filtered hotel list length:", hotelsRaw.length);
 
     const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
