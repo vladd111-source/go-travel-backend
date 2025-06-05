@@ -42,14 +42,14 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-   // 📦 Получаем только реально доступные отели
-const pricesUrl = `https://engine.hotellook.com/api/v2/prices.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
-const pricesRes = await fetch(pricesUrl);
-const pricesData = await pricesRes.json();
-console.log("🏨 Raw hotel prices data length:", Array.isArray(pricesData) ? pricesData.length : "Invalid");
+  // 📦 Получаем отели
+const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
+const cacheRes = await fetch(cacheUrl);
+const cacheData = await cacheRes.json();
+console.log("🏨 Raw hotel cache data length:", Array.isArray(cacheData) ? cacheData.length : "Invalid");
 
-const hotelsRaw = Array.isArray(pricesData)
-  ? pricesData.filter(h => h.hotelId && h.priceFrom > 0)
+const hotelsRaw = Array.isArray(cacheData)
+  ? cacheData.filter(h => h.priceFrom > 0 && h.hotelId)
   : [];
 
     console.log("✅ Filtered hotel list length:", hotelsRaw.length);
