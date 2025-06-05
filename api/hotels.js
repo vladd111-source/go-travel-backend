@@ -38,6 +38,11 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
+if (nights > 30) {
+  res.writeHead(400, { "Content-Type": "application/json" });
+  return res.end(JSON.stringify({ error: "⛔ Максимальный срок бронирования — 30 дней" }));
+}
+
     // 📦 Получаем отели (доступные на даты)
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
