@@ -5,7 +5,7 @@ import imageHandler from "./api/image-places.js";
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const allowedOrigin = "*";
+  const allowedOrigin = "https://go-travel-frontend.vercel.app";
 
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
