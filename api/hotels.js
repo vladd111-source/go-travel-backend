@@ -8,7 +8,8 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-    const { city = "Paris", checkIn, checkOut } = req.query;
+    const url = new URL(req.url, `http://${req.headers.host}`);
+const { city = "Paris", checkIn, checkOut } = Object.fromEntries(url.searchParams.entries());
 
     if (!checkIn || !checkOut) {
       return res.status(400).json({ error: "❌ Укажите даты checkIn и checkOut" });
