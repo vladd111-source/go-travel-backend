@@ -1,15 +1,17 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
+  // ✅ Заголовки CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
-    res.writeHead(200);
+    res.writeHead(204);
     return res.end();
   }
 
+  // ✅ Извлечение пути к изображению
   const match = req.url.match(/\/api\/image-proxy\/(.+)/);
   const photoPath = match?.[1];
 
@@ -23,6 +25,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(imageUrl);
+
     if (!response.ok) {
       res.writeHead(response.status, { "Content-Type": "text/plain" });
       return res.end(`❌ Не удалось получить изображение: ${response.statusText}`);
@@ -32,10 +35,10 @@ export default async function handler(req, res) {
     const buffer = await response.arrayBuffer();
 
     res.writeHead(200, { "Content-Type": contentType });
-    res.end(Buffer.from(buffer));
+    return res.end(Buffer.from(buffer));
   } catch (err) {
-    console.error("❌ Proxy error:", err.message);
+    console.error("❌ Proxy error:", err.message || err);
     res.writeHead(500, { "Content-Type": "text/plain" });
-    res.end("❌ Proxy failure");
+    return res.end("❌ Proxy failure");
   }
 }
