@@ -61,9 +61,9 @@ export default async function handler(req, res) {
       const photos = photoJson[String(hotelId)] || [];
       const photoId = photos.length > 0 ? photos[0] : null;
 
-      const imageUrl = photoId
-        ? `https://photo.hotellook.com/image_v2/limit/${photoId}/800/520.jpg`
-        : "https://via.placeholder.com/800x520?text=No+Image";
+     const imageUrl = photoId
+  ? `https://go-travel-backend-86i8.onrender.com/api/image-proxy/${photoId}/800/520.jpg`
+  : "https://via.placeholder.com/800x520?text=No+Image";
 
       console.log(`🖼 ${hotelId}: image = ${imageUrl}`);
 
