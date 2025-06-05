@@ -86,6 +86,7 @@ export default async function handler(req, res) {
     return res.status(200).json(hotels);
   } catch (err) {
     console.error("❌ Ошибка:", err.stack || err.message);
-    return res.status(500).json({ error: `❌ Ошибка при получении отелей: ${err.message}` });
+   console.error("❌ FULL ERROR:", err);
+return res.status(500).json({ error: `❌ Ошибка при получении отелей`, details: err.stack || err.message || err });
   }
 }
