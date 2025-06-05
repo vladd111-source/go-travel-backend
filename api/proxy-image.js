@@ -8,7 +8,8 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const match = req.url.match(/\/api\/image-proxy\/(.+)/);
-  const photoPath = match?.[1];
+  const encodedPath = match?.[1];
+  const photoPath = decodeURIComponent(encodedPath || "");
 
   if (!photoPath) {
     return res.status(400).send("❌ photoPath is required");
@@ -26,10 +27,7 @@ export default async function handler(req, res) {
         .send(`❌ Не удалось получить изображение: ${response.statusText}`);
     }
 
-    res.setHeader(
-      "Content-Type",
-      response.headers.get("content-type") || "image/jpeg"
-    );
+    res.setHeader("Content-Type", response.headers.get("content-type") || "image/jpeg");
     const buffer = await response.arrayBuffer();
     res.status(200).end(Buffer.from(buffer));
   } catch (err) {
