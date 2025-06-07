@@ -125,6 +125,8 @@ export default async function handler(req, res) {
     const apiRes = await fetch(apiUrl);
     const result = await apiRes.json();
 
+    console.log("📦 Полный ответ от API:", JSON.stringify(result, null, 2));
+    
     if (Array.isArray(result?.data) && result.data.length > 0) {
       console.log(`✅ Найдено рейсов: ${result.data.length}`);
       return res.status(200).json(result.data);
