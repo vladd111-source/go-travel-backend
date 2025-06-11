@@ -119,7 +119,9 @@ export default async function handler(req, res) {
 
   console.log("🔍 Запрос:", { origin, destination, date, ip });
 
-  const apiUrl = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&destination=${destination}&departure_at=${date}&currency=usd&token=067df6a5f1de28c8a898bc83744dfdcd`;
+ const selectedClass = document.getElementById("flightClass")?.value || "Y";
+
+const url = `https://go-travel-backend.onrender.com/api/flights?from=${from}&to=${to}&date=${date}&class=${selectedClass}`; 
 
   try {
     const apiRes = await fetch(apiUrl);
