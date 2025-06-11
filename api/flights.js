@@ -119,7 +119,7 @@ export default async function handler(req, res) {
 
   console.log("🔍 Запрос:", { origin, destination, date, ip });
 
- const selectedClass = document.getElementById("flightClass")?.value || "Y";
+const selectedClass = req.query.class || "Y";
 
 const url = `https://go-travel-backend.onrender.com/api/flights?from=${from}&to=${to}&date=${date}&class=${selectedClass}`; 
 
