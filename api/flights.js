@@ -25,7 +25,8 @@ export default async function handler(req, res) {
 
   requestLog[ip].lastRequest = now;
 
-  const { from = "", to = "", date = "" } = req.query;
+  const { from = "", to = "", date = "", class: flightClass = "Y" } = req.query;
+
   if (!from || !to || !date) {
     return res.status(400).json({ error: "⛔ Параметры from, to и date обязательны." });
   }
@@ -104,7 +105,7 @@ export default async function handler(req, res) {
       }
 
       resolve(foundCode);
-      await delay(500); // 🔄 небольшой буфер, чтобы не триггерить лимиты
+      await delay(500);
     }
 
     processingQueue = false;
@@ -117,19 +118,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "⛔ Не удалось определить IATA-коды." });
   }
 
-  console.log("🔍 Запрос:", { origin, destination, date, ip });
+  console.log("🔍 Запрос:", { origin, destination, date, flightClass, ip });
 
-const selectedClass = req.query.class || "Y";
+  const apiUrl = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&destination=${destination}&departure_at=${date}&currency=usd&travel_class=${flightClass}&token=067df6a5f1de28c8a898bc83744dfdcd`;
 
-const apiUrl = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&destination=${destination}&departure_at=${date}&currency=usd&travel_class=${selectedClass}&token=067df6a5f1de28c8a898bc83744dfdcd`;
-
-try {
-  const apiRes = await fetch(apiUrl);
-    
+  try {
+    const apiRes = await fetch(apiUrl);
     const result = await apiRes.json();
 
     console.log("📦 Полный ответ от API:", JSON.stringify(result, null, 2));
-    
+
     if (Array.isArray(result?.data) && result.data.length > 0) {
       console.log(`✅ Найдено рейсов: ${result.data.length}`);
       return res.status(200).json(result.data);
