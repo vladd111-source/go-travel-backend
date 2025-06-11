@@ -121,10 +121,11 @@ export default async function handler(req, res) {
 
 const selectedClass = req.query.class || "Y";
 
-const url = `https://go-travel-backend.onrender.com/api/flights?from=${from}&to=${to}&date=${date}&class=${selectedClass}`; 
+const apiUrl = `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=${origin}&destination=${destination}&departure_at=${date}&currency=usd&travel_class=${selectedClass}&token=067df6a5f1de28c8a898bc83744dfdcd`;
 
-  try {
-    const apiRes = await fetch(apiUrl);
+try {
+  const apiRes = await fetch(apiUrl);
+    
     const result = await apiRes.json();
 
     console.log("📦 Полный ответ от API:", JSON.stringify(result, null, 2));
