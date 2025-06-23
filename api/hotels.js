@@ -1,14 +1,12 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  // ✅ Заголовки CORS — всегда должны быть
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
-    res.writeHead(204);
-    return res.end();
+    return res.status(204).end();
   }
 
   try {
@@ -16,48 +14,41 @@ export default async function handler(req, res) {
     const { city = "Paris", checkIn, checkOut } = Object.fromEntries(url.searchParams.entries());
 
     if (!checkIn || !checkOut) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify({ error: "❌ Укажите даты checkIn и checkOut" }));
+      return res.status(400).json({ error: "❌ Укажите даты checkIn и checkOut" });
     }
 
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
-    // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupJson = await lookupRes.json();
 
     const location = lookupJson?.results?.locations?.[0];
     if (!location?.id) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify({ error: `❌ Локация не найдена: ${city}` }));
+      return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
     }
 
     const locationId = location.id;
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-if (nights > 30) {
-  res.writeHead(400, { "Content-Type": "application/json" });
-  return res.end(JSON.stringify({ error: "⛔ Максимальный срок бронирования — 30 дней" }));
-}
+    if (nights > 30) {
+      return res.status(400).json({ error: "⛔ Максимальный срок бронирования — 30 дней" });
+    }
 
-    // 📦 Получаем отели (доступные на даты)
     const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
     const cacheRes = await fetch(cacheUrl);
-    
-    // Если сервис вернёт 403 или "Unknown api method", это будет невалидный JSON
     const text = await cacheRes.text();
+
     let cacheData;
     try {
       cacheData = JSON.parse(text);
     } catch (jsonErr) {
-      res.writeHead(502, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify({
+      return res.status(502).json({
         error: "❌ Невалидный ответ от API",
         details: text
-      }));
+      });
     }
 
     const hotelsRaw = Array.isArray(cacheData)
@@ -65,13 +56,10 @@ if (nights > 30) {
       : [];
 
     if (hotelsRaw.length === 0) {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify([]));
+      return res.status(200).json([]);
     }
 
     const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
-
-    // 🖼 Получаем фото
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
     const photoJson = await photoRes.json();
@@ -79,7 +67,6 @@ if (nights > 30) {
     const hotels = hotelsRaw.map(h => {
       const hotelId = h.hotelId;
       const fullPrice = h.priceFrom || 0;
-
       const photos = photoJson[String(hotelId)] || [];
       const photoId = photos.length > 0 ? photos[0] : null;
 
@@ -99,15 +86,12 @@ if (nights > 30) {
       };
     });
 
-    res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify(hotels));
+    return res.status(200).json(hotels);
   } catch (err) {
-    res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app"); // дубль на случай падения до сюда
     console.error("❌ FULL ERROR:", err);
-    res.writeHead(500, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({
+    return res.status(500).json({
       error: "❌ Ошибка при получении отелей",
       details: err.stack || err.message || String(err)
-    }));
+    });
   }
 }
