@@ -2,11 +2,14 @@ import fetch from "node-fetch";
 
 const corsOrigin = "https://go-travel-frontend.vercel.app";
 
-export default async function handler(req, res) {
-  // ✅ Установка CORS заголовков — до любой логики
+function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", corsOrigin);
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+export default async function handler(req, res) {
+  setCorsHeaders(res);
 
   if (req.method === "OPTIONS") {
     return res.status(204).end();
@@ -17,6 +20,7 @@ export default async function handler(req, res) {
     const { city = "Paris", checkIn, checkOut } = Object.fromEntries(url.searchParams.entries());
 
     if (!checkIn || !checkOut) {
+      setCorsHeaders(res);
       return res.status(400).json({ error: "❌ Укажите даты checkIn и checkOut" });
     }
 
@@ -29,6 +33,7 @@ export default async function handler(req, res) {
 
     const location = lookupJson?.results?.locations?.[0];
     if (!location?.id) {
+      setCorsHeaders(res);
       return res.status(404).json({ error: `❌ Локация не найдена: ${city}` });
     }
 
@@ -37,6 +42,7 @@ export default async function handler(req, res) {
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
     if (nights > 30) {
+      setCorsHeaders(res);
       return res.status(400).json({ error: "⛔ Максимальный срок бронирования — 30 дней" });
     }
 
@@ -48,6 +54,7 @@ export default async function handler(req, res) {
     try {
       cacheData = JSON.parse(text);
     } catch {
+      setCorsHeaders(res);
       return res.status(502).json({
         error: "❌ Невалидный ответ от API",
         details: text
@@ -59,6 +66,7 @@ export default async function handler(req, res) {
       : [];
 
     if (hotelsRaw.length === 0) {
+      setCorsHeaders(res);
       return res.status(200).json([]);
     }
 
@@ -89,9 +97,11 @@ export default async function handler(req, res) {
       };
     });
 
+    setCorsHeaders(res);
     return res.status(200).json(hotels);
   } catch (err) {
     console.error("❌ FULL ERROR:", err);
+    setCorsHeaders(res);
     return res.status(500).json({
       error: "❌ Ошибка при получении отелей",
       details: err.stack || err.message || String(err)
