@@ -1,7 +1,9 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
+  const corsOrigin = "https://go-travel-frontend.vercel.app";
+
+  res.setHeader("Access-Control-Allow-Origin", corsOrigin);
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
@@ -88,6 +90,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json(hotels);
   } catch (err) {
+    // 🛡️ Дублируем CORS заголовки на случай ошибки
+    res.setHeader("Access-Control-Allow-Origin", corsOrigin);
+    res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
     console.error("❌ FULL ERROR:", err);
     return res.status(500).json({
       error: "❌ Ошибка при получении отелей",
