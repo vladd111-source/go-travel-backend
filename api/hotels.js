@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       return res.end(JSON.stringify({ error: "⛔ Максимальный срок бронирования — 30 дней" }));
     }
 
-    const resultUrl = `https://engine.hotellook.com/api/v2/search/getResult.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
+   const resultUrl = `https://engine.hotellook.com/api/v2/search/getResult.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&adults=1&limit=100&token=${token}&marker=${marker}`;
     const resultRes = await fetch(resultUrl);
     const resultJson = await resultRes.json();
 
