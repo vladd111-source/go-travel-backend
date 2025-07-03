@@ -1,7 +1,6 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  // ✅ Заголовки CORS — всегда должны быть
   res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -23,7 +22,6 @@ export default async function handler(req, res) {
     const token = "067df6a5f1de28c8a898bc83744dfdcd";
     const marker = 618281;
 
-    // 🔍 Получаем locationId
     const lookupUrl = `https://engine.hotellook.com/api/v2/lookup.json?query=${encodeURIComponent(city)}&token=${token}&marker=${marker}`;
     const lookupRes = await fetch(lookupUrl);
     const lookupJson = await lookupRes.json();
@@ -38,30 +36,17 @@ export default async function handler(req, res) {
     const fallbackCity = location.fullName || city;
     const nights = Math.max(1, (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
 
-if (nights > 30) {
-  res.writeHead(400, { "Content-Type": "application/json" });
-  return res.end(JSON.stringify({ error: "⛔ Максимальный срок бронирования — 30 дней" }));
-}
-
-    // 📦 Получаем отели (доступные на даты)
-    const cacheUrl = `https://engine.hotellook.com/api/v2/cache.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
-    const cacheRes = await fetch(cacheUrl);
-    
-    // Если сервис вернёт 403 или "Unknown api method", это будет невалидный JSON
-    const text = await cacheRes.text();
-    let cacheData;
-    try {
-      cacheData = JSON.parse(text);
-    } catch (jsonErr) {
-      res.writeHead(502, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify({
-        error: "❌ Невалидный ответ от API",
-        details: text
-      }));
+    if (nights > 30) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "⛔ Максимальный срок бронирования — 30 дней" }));
     }
 
-    const hotelsRaw = Array.isArray(cacheData)
-      ? cacheData.filter(h => h.priceFrom > 0 && h.hotelId)
+    const resultUrl = `https://engine.hotellook.com/api/v2/search/getResult.json?locationId=${locationId}&checkIn=${checkIn}&checkOut=${checkOut}&limit=100&token=${token}&marker=${marker}`;
+    const resultRes = await fetch(resultUrl);
+    const resultJson = await resultRes.json();
+
+    const hotelsRaw = Array.isArray(resultJson.result)
+      ? resultJson.result.filter(h => Array.isArray(h.rooms) && h.rooms.length > 0)
       : [];
 
     if (hotelsRaw.length === 0) {
@@ -69,16 +54,14 @@ if (nights > 30) {
       return res.end(JSON.stringify([]));
     }
 
-    const hotelIds = hotelsRaw.map(h => h.hotelId).join(",");
-
-    // 🖼 Получаем фото
+    const hotelIds = hotelsRaw.map(h => h.id).join(",");
     const photoApiUrl = `https://yasen.hotellook.com/photos/hotel_photos?id=${hotelIds}`;
     const photoRes = await fetch(photoApiUrl);
     const photoJson = await photoRes.json();
 
     const hotels = hotelsRaw.map(h => {
-      const hotelId = h.hotelId;
-      const fullPrice = h.priceFrom || 0;
+      const hotelId = h.id;
+      const fullPrice = h.minPriceTotal || h.price || 0;
 
       const photos = photoJson[String(hotelId)] || [];
       const photoId = photos.length > 0 ? photos[0] : null;
@@ -90,19 +73,19 @@ if (nights > 30) {
       return {
         id: hotelId,
         hotelId,
-        name: h.hotelName || h.name || "Без названия",
+        name: h.name || "Без названия",
         city: h.city || fallbackCity,
         fullPrice,
         pricePerNight: Math.floor(fullPrice / nights),
         rating: h.rating || (h.stars ? h.stars * 2 : 0),
-        image: imageUrl
+        image: imageUrl,
+        rooms: h.rooms
       };
     });
 
     res.writeHead(200, { "Content-Type": "application/json" });
     return res.end(JSON.stringify(hotels));
   } catch (err) {
-    res.setHeader("Access-Control-Allow-Origin", "https://go-travel-frontend.vercel.app"); // дубль на случай падения до сюда
     console.error("❌ FULL ERROR:", err);
     res.writeHead(500, { "Content-Type": "application/json" });
     return res.end(JSON.stringify({
